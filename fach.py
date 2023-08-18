@@ -116,12 +116,12 @@ if __name__ == "__main__":
             g_avg_area_df = avg_area_df.loc[avg_area_df["Sample_Group"] == g]
 
             # If only one sum composition, skip to the next lipid
-            n_compositions = (
+            is_singleton_composition = (
                 g_avg_area_df[["N_Carbon", "N_DB"]]
                 .drop_duplicates()
                 .shape[0] == 1
             )
-            if n_compositions <= 1:
+            if is_singleton_composition:
                 continue
 
             # Sum together feature area values if they share N_Carbon and N_DB
