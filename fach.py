@@ -51,8 +51,20 @@ if __name__ == "__main__":
         help="path to the desired output directory"
     )
     parser.add_argument(
+        "-s", "--subdir", dest="s", action="store_true",
+        help="if set, saves plots to subdirectories by lipid class"
+    )
+    parser.add_argument(
         "-m", "--mean", dest="m", action="store_true",
         help="if set, adds dashed lines to the plots denoting mean values"
+    )
+    parser.add_argument(
+        "-t", "--tables", dest="t", action="store_true",
+        help="if set, saves intermediate data tables as .csv files"
+    )
+    parser.add_argument(
+        "-k", "--kde", dest="k", action="store_true",
+        help="if set, saves marginal KDE plots for each lipid class"
     )
     parser.add_argument(
         "-c", "--cmap", dest="c", required=False, default="YlOrBr",
@@ -67,10 +79,11 @@ if __name__ == "__main__":
 
     # Parse lipid annotations and drop lipid features that cannot be parsed
     annotations = area_df.index.to_series().apply(parse_lipid_annotation)
-    print(
-        f"{sum(pd.isnull(annotations))} lipid annotations could not be parsed "
-        "and have been removed"
-    )
+    if pd.isnull(annotations).sum() > 0:
+        print(
+            f"{sum(pd.isnull(annotations))} lipid annotations could not be "
+            "parsed and have been removed"
+        )
     area_df = area_df.loc[~pd.isnull(annotations)]
     annotations.dropna(inplace=True)
 
@@ -97,8 +110,13 @@ if __name__ == "__main__":
         }
     )
 
-    # Create the output directory
+    # Create output directory
     pathlib.Path(args.o).mkdir(parents=True, exist_ok=True)
+
+    if args.t:
+        area_df.to_csv(
+            pathlib.Path(args.o, "Parsed_Area_Table.csv", index=False)
+        )
 
     # Extract unique lipid classes and sample groups
     lipid_classes = area_df["Lipid_Class"].drop_duplicates().values
@@ -106,12 +124,25 @@ if __name__ == "__main__":
 
     # Generate a fatty acid composition heatmap for each lipid class
     for c in tqdm(lipid_classes):
+        # Create an output subdirectory if the flag is set
+        if args.s:
+            pathlib.Path(args.o, c).mkdir(parents=True, exist_ok=True)
+
         # Compute average areas based on sample groups
         avg_area_df = (
             area_df.loc[area_df["Lipid_Class"] == c]
             .groupby(["Lipid_Annotation", "Sample_Group"], as_index=False)
             .mean("Area")
+            .rename(columns={"Area": "Average_Area"})
         )
+
+        if args.t:
+            avg_area_df.to_csv(
+                pathlib.Path(
+                    args.o, c, f"{c}_Average_Area_Table.csv"
+                ), index=False
+            )
+
         for g in sample_groups:
             g_avg_area_df = avg_area_df.loc[avg_area_df["Sample_Group"] == g]
 
@@ -127,13 +158,20 @@ if __name__ == "__main__":
             # Sum together feature area values if they share N_Carbon and N_DB
             g_avg_area_df = (
                 g_avg_area_df.groupby(["N_Carbon", "N_DB"], as_index=False)
-                .sum("Area")
+                .sum("Average_Area")
             )
 
             # Calculate proportions
             g_avg_area_df["Proportion"] = (
-                g_avg_area_df["Area"] /  g_avg_area_df["Area"].sum()
+                g_avg_area_df["Average_Area"] /
+                g_avg_area_df["Average_Area"].sum()
             )
+
+            if args.t:
+                g_avg_area_df.to_csv(
+                    pathlib.Path(args.o, c, f"{c}_{g}_Proportions_Table.csv"),
+                    index=False
+                )
 
             # Get DataFrames to plot marginal barplots
             n_carbon_range = np.arange(
@@ -228,6 +266,10 @@ if __name__ == "__main__":
             ax_cbar.xaxis.set_ticks_position("top")
 
             # Save and close before moving on
-            fig.savefig(fname=pathlib.Path(args.o, f"{c}_{g}.png"))
+            if args.s:
+                fig.savefig(fname=pathlib.Path(args.o, c, f"{c}_{g}.png"))
+            else:
+                fig.savefig(fname=pathlib.Path(args.o, f"{c}_{g}.png"))
+
             plt.close()
 
