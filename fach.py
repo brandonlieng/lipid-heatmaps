@@ -36,6 +36,87 @@ def parse_lipid_annotation(l):
     return [lipid_class, n_c, n_db]
 
 
+def plot_fach(heatmap_df, area_df, mean_markers, cmap):
+    """
+    Plot a fatty acid composition heatmap.
+
+    :param heatmap_df:      a pandas DataFrame holding data for the heatmap
+
+    :param marginals_df:    a pandas DataFrame holding data for marginal plots
+
+    :param mean_markers:    a boolean denoting whether or not to draw markers
+                            showing mean number of carbon atoms/double bonds
+
+    :param cmap:            a string deenoting the desired heatmap colourmap
+
+    :return:    a Matplotlib figure
+    """
+    # Initalize a grid of subplots
+    fig = plt.figure(figsize=(8, 8))
+    gs = fig.add_gridspec(
+        2, 2, width_ratios=(4, 1), height_ratios=(1, 4), left=0.1,
+        right=0.9, bottom=0.1, top=0.9, wspace=0.1, hspace=0.1
+    )
+    ax_heatmap = fig.add_subplot(gs[1, 0], )
+    ax_hist_x = fig.add_subplot(gs[0, 0])
+    ax_hist_y = fig.add_subplot(gs[1, 1])
+    ax_cbar = fig.add_subplot(gs[0, 1])
+    # Add plots to the subplot axes
+    sns.heatmap(
+        data=heatmap_df, ax=ax_heatmap, cbar_ax=ax_cbar, cmap=cmap,
+        cbar_kws={"orientation": "horizontal", "label": "Proportion"},
+    )
+    sns.barplot(
+        data=(
+            marginals_df
+            .groupby("N_Carbon", as_index=False)
+            .sum("Proportion")
+        ), x="N_Carbon", y="Proportion", color="grey", errorbar=None,
+        ax=ax_hist_x, width=0.9
+    )
+    sns.barplot(
+        data=(
+            marginals_df
+            .groupby("N_DB", as_index=False)
+            .sum("Proportion")
+        ), y="N_DB", x="Proportion",
+        orient="h", color="grey", errorbar=None, ax=ax_hist_y,
+        width=0.9
+    )
+    # Determine means and mark them on the heatmap if the flag is set
+    if mean_markers:
+        avg_n_carbon = sum(
+            marginals_df["N_Carbon"] * marginals_df["Proportion"]
+        )
+        avg_n_db = sum(
+            marginals_df["N_DB"] * marginals_df["Proportion"]
+        )
+        ax_heatmap.axvline(
+            x=np.interp(
+                avg_n_carbon, n_carbon_range, range(len(n_carbon_range))
+            ) + 0.5, linestyle="--", linewidth=1
+        )
+        ax_heatmap.axhline(
+            y=np.interp(
+                avg_n_db, n_db_range, range(len(n_db_range))
+            ) + 0.5, linestyle="--", linewidth=1
+        )
+    # Decorating plots
+    ax_hist_x.spines[["right", "top"]].set_visible(False)
+    ax_hist_y.spines[["right", "top"]].set_visible(False)
+    ax_hist_x.tick_params(labelbottom=False, bottom=False)
+    ax_hist_y.tick_params(labelleft=False, left=False)
+    ax_hist_x.set_xlabel(None)
+    ax_hist_y.set_ylabel(None)
+    ax_heatmap.set_xlabel("Number of carbon atoms")
+    ax_heatmap.set_ylabel("Number of double bonds")
+    ax_cbar.xaxis.set_ticks_position("top")
+    return fig
+
+
+def plot_marginal_barplot(marginals_df):
+    pass
+
 
 if __name__ == "__main__":
     # Parse arguments
@@ -184,7 +265,7 @@ if __name__ == "__main__":
             )
 
             # Pad N_Carbon and N_DB values so they are not skipped along axes
-            g_avg_area_padded_df = (
+            marginals_df = (
                 pd.DataFrame(
                     {"N_Carbon": [n_carbon_range], "N_DB": [n_db_range]}
                 )
@@ -195,81 +276,22 @@ if __name__ == "__main__":
             )
 
             # Create wide matrix for sns.heatmap
-            mat = (
-                g_avg_area_padded_df
+            heatmap_df = (
+                marginals_df
                 .pivot(columns="N_Carbon", index="N_DB", values="Proportion")
             )
-            mat.fillna(0, inplace=True)
+            heatmap_df.fillna(0, inplace=True)
 
-            # Initalize a grid of subplots
-            fig = plt.figure(figsize=(8, 8))
-            gs = fig.add_gridspec(
-                2, 2, width_ratios=(4, 1), height_ratios=(1, 4), left=0.1,
-                right=0.9, bottom=0.1, top=0.9, wspace=0.1, hspace=0.1
-            )
-            ax_heatmap = fig.add_subplot(gs[1, 0], )
-            ax_hist_x = fig.add_subplot(gs[0, 0])
-            ax_hist_y = fig.add_subplot(gs[1, 1])
-            ax_cbar = fig.add_subplot(gs[0, 1])
-
-            # Add plots to the subplot axes
-            sns.heatmap(
-                data=mat, ax=ax_heatmap, cbar_ax=ax_cbar, cmap=args.c,
-                cbar_kws={"orientation": "horizontal", "label": "Proportion"},
-            )
-            sns.barplot(
-                data=(
-                    g_avg_area_padded_df
-                    .groupby("N_Carbon", as_index=False)
-                    .sum("Proportion")
-                ), x="N_Carbon", y="Proportion", color="grey", errorbar=None,
-                ax=ax_hist_x, width=0.9
-            )
-            sns.barplot(
-                data=(
-                    g_avg_area_padded_df
-                    .groupby("N_DB", as_index=False)
-                    .sum("Proportion")
-                ), y="N_DB", x="Proportion",
-                orient="h", color="grey", errorbar=None, ax=ax_hist_y,
-                width=0.9
-            )
-
-            # Determine means and mark them on the heatmap if the flag is set
-            if args.m:
-                avg_n_carbon = sum(
-                    g_avg_area_df["N_Carbon"] * g_avg_area_df["Proportion"]
-                )
-                avg_n_db = sum(
-                    g_avg_area_df["N_DB"] * g_avg_area_df["Proportion"]
-                )
-                ax_heatmap.axvline(
-                    x=np.interp(
-                        avg_n_carbon, n_carbon_range, range(len(n_carbon_range))
-                    ) + 0.5, linestyle="--", linewidth=1
-                )
-                ax_heatmap.axhline(
-                    y=np.interp(
-                        avg_n_db, n_db_range, range(len(n_db_range))
-                    ) + 0.5, linestyle="--", linewidth=1
-                )
-
-            # Decorating plots
-            ax_hist_x.spines[["right", "top"]].set_visible(False)
-            ax_hist_y.spines[["right", "top"]].set_visible(False)
-            ax_hist_x.tick_params(labelbottom=False, bottom=False)
-            ax_hist_y.tick_params(labelleft=False, left=False)
-            ax_hist_x.set_xlabel(None)
-            ax_hist_y.set_ylabel(None)
-            ax_heatmap.set_xlabel("Number of carbon atoms")
-            ax_heatmap.set_ylabel("Number of double bonds")
-            ax_cbar.xaxis.set_ticks_position("top")
+            # Generate FACH
+            fig = plot_fach(heatmap_df, marginals_df, args.m, args.c)
 
             # Save and close before moving on
             if args.s:
                 fig.savefig(fname=pathlib.Path(args.o, c, f"{c}_{g}.png"))
             else:
                 fig.savefig(fname=pathlib.Path(args.o, f"{c}_{g}.png"))
-
             plt.close()
 
+            if args.k:
+                fig = plot_marginal_barplots(marginals_df)
+                plt.close()
