@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pathlib
+import random
 import re
 import seaborn as sns
 from tqdm.auto import tqdm
@@ -36,21 +37,49 @@ def parse_lipid_annotation(l):
     return [lipid_class, n_c, n_db]
 
 
-def plot_fach(heatmap_df, area_df, mean_markers, cmap):
+def pad_area_df(area_df):
+    # Determine min and max values
+    n_carbon_range = np.arange(
+        g_area_df["N_Carbon"].min(),
+        g_area_df["N_Carbon"].max() + 1,
+        1
+    )
+    n_db_range = np.arange(
+        g_area_df["N_DB"].min(), g_area_df["N_DB"].max() + 1, 1
+    )
+
+    g_area_df = (
+        pd.DataFrame(
+            {"N_Carbon": [n_carbon_range], "N_DB": [n_db_range]}
+        )
+        .explode("N_Carbon")
+        .explode("N_DB")
+        .merge(g_area_df, on=["N_Carbon", "N_DB"], how="outer")
+        .astype({"N_Carbon": "int32", "N_DB": "int32"})
+    )
+
+
+
+def plot_fach(area_df, mean_markers, heatmap_cmap):
     """
     Plot a fatty acid composition heatmap.
 
-    :param heatmap_df:      a pandas DataFrame holding data for the heatmap
-
-    :param marginals_df:    a pandas DataFrame holding data for marginal plots
+    :param area_df:         a pandas DataFrame holding N_Carbon/N_DB data for
+                            features within a lipid class and sample group
 
     :param mean_markers:    a boolean denoting whether or not to draw markers
                             showing mean number of carbon atoms/double bonds
 
-    :param cmap:            a string deenoting the desired heatmap colourmap
+    :param heatmap_cmap:    a string denoting the desired heatmap colourmap
 
-    :return:    a Matplotlib figure
+    :return:                a Matplotlib figure
     """
+    # Create wide matrix for sns.heatmap
+    heatmap_df = (
+        area_df
+        .pivot(columns="N_Carbon", index="N_DB", values="Proportion")
+    )
+    heatmap_df.fillna(0, inplace=True)
     # Initalize a grid of subplots
     fig = plt.figure(figsize=(8, 8))
     gs = fig.add_gridspec(
@@ -63,12 +92,12 @@ def plot_fach(heatmap_df, area_df, mean_markers, cmap):
     ax_cbar = fig.add_subplot(gs[0, 1])
     # Add plots to the subplot axes
     sns.heatmap(
-        data=heatmap_df, ax=ax_heatmap, cbar_ax=ax_cbar, cmap=cmap,
+        data=heatmap_df, ax=ax_heatmap, cbar_ax=ax_cbar, cmap=heatmap_cmap,
         cbar_kws={"orientation": "horizontal", "label": "Proportion"},
     )
     sns.barplot(
         data=(
-            marginals_df
+            area_df
             .groupby("N_Carbon", as_index=False)
             .sum("Proportion")
         ), x="N_Carbon", y="Proportion", color="grey", errorbar=None,
@@ -76,7 +105,7 @@ def plot_fach(heatmap_df, area_df, mean_markers, cmap):
     )
     sns.barplot(
         data=(
-            marginals_df
+            area_df
             .groupby("N_DB", as_index=False)
             .sum("Proportion")
         ), y="N_DB", x="Proportion",
@@ -86,10 +115,10 @@ def plot_fach(heatmap_df, area_df, mean_markers, cmap):
     # Determine means and mark them on the heatmap if the flag is set
     if mean_markers:
         avg_n_carbon = sum(
-            marginals_df["N_Carbon"] * marginals_df["Proportion"]
+            area_df["N_Carbon"] * area_df["Proportion"]
         )
         avg_n_db = sum(
-            marginals_df["N_DB"] * marginals_df["Proportion"]
+            area_df["N_DB"] * area_df["Proportion"]
         )
         ax_heatmap.axvline(
             x=np.interp(
@@ -104,8 +133,8 @@ def plot_fach(heatmap_df, area_df, mean_markers, cmap):
     # Decorating plots
     ax_hist_x.spines[["right", "top"]].set_visible(False)
     ax_hist_y.spines[["right", "top"]].set_visible(False)
-    ax_hist_x.tick_params(labelbottom=False, bottom=False)
-    ax_hist_y.tick_params(labelleft=False, left=False)
+    ax_hist_x.tick_params(labelbottom=False, bottom=False, size=12)
+    ax_hist_y.tick_params(labelleft=False, left=False, size=12)
     ax_hist_x.set_xlabel(None)
     ax_hist_y.set_ylabel(None)
     ax_heatmap.set_xlabel("Number of carbon atoms")
@@ -114,8 +143,29 @@ def plot_fach(heatmap_df, area_df, mean_markers, cmap):
     return fig
 
 
-def plot_marginal_barplot(marginals_df):
-    pass
+def plot_marginal_barplot(area_df, margin):
+    assert margin in ["N_Carbon", "N_DB"]
+    # Sum proportions if they share the same N_Carbon or N_DB, depending on the
+    # marginal varable to be plotted
+    area_df = (
+        area_df
+        .sort_values(by=[margin, "Sample_Group"])
+        .groupby([margin, "Sample_Group"])
+        .sum()
+        ["Proportion"]
+        .reset_index()
+    )
+    p = sns.catplot(
+        kind="bar", data=c_area_df, x=margin, y="Proportion", col_wrap=2,
+        col="Sample_Group", height=1, aspect=2, errorbar=None, color="blue"
+    )
+    # Decorating plot
+    x_label = "Number of carbon atoms" if margin == "N_Carbon" else \
+        "Number of double bonds"
+    p.set_axis_labels(x_label, "Proportion", size=12)
+    p.set_titles("{col_name}", size=12)
+    p.set(ylim=(0, 1))
+    return p
 
 
 if __name__ == "__main__":
@@ -144,12 +194,16 @@ if __name__ == "__main__":
         help="if set, saves intermediate data tables as .csv files"
     )
     parser.add_argument(
-        "-k", "--kde", dest="k", action="store_true",
-        help="if set, saves marginal KDE plots for each lipid class"
+        "-b", "--bar", dest="b", action="store_true",
+        help="if set, saves marginal barplots for each lipid class"
     )
     parser.add_argument(
         "-c", "--cmap", dest="c", required=False, default="YlOrBr",
         help="the desired colormapping"
+    )
+    parser.add_argument(
+        "-p", "--pad", dest="p", action="store_true",
+        help="if set, pads the heatmap with N carbon/DB values between min/max"
     )
     args = parser.parse_args()
 
@@ -157,7 +211,6 @@ if __name__ == "__main__":
     area_df = pd.read_excel(args.i, header=0, index_col=0)
     area_df.index.name = "Lipid_Annotation"
     area_df.columns.name = "Sample_ID"
-
     # Parse lipid annotations and drop lipid features that cannot be parsed
     annotations = area_df.index.to_series().apply(parse_lipid_annotation)
     if pd.isnull(annotations).sum() > 0:
@@ -167,22 +220,18 @@ if __name__ == "__main__":
         )
     area_df = area_df.loc[~pd.isnull(annotations)]
     annotations.dropna(inplace=True)
-
     # Un-pivot the table to long format
     area_df = area_df.stack().reset_index(level=1).rename(columns={0: "Area"})
-
     # Parse sample IDs into sample groups
     area_df["Sample_Group"] = [
         "".join(i.split("_")[:-1]) for i in area_df["Sample_ID"].values
     ]
-
     # Merge parsed lipid annotations with area table
     anno_df = pd.DataFrame.from_records(
         annotations, index=annotations.index,
         columns=["Lipid_Class", "N_Carbon", "N_DB"]
     )
     area_df = area_df.join(anno_df)
-
     # Fix dtypes
     area_df = area_df.astype(
         {
@@ -193,105 +242,112 @@ if __name__ == "__main__":
 
     # Create output directory
     pathlib.Path(args.o).mkdir(parents=True, exist_ok=True)
-
     if args.t:
         area_df.to_csv(
             pathlib.Path(args.o, "Parsed_Area_Table.csv", index=False)
         )
-
     # Extract unique lipid classes and sample groups
     lipid_classes = area_df["Lipid_Class"].drop_duplicates().values
     sample_groups = area_df["Sample_Group"].drop_duplicates().values
 
-    # Generate a fatty acid composition heatmap for each lipid class
+    # Begin looping through the lipid classes
     for c in tqdm(lipid_classes):
         # Create an output subdirectory if the flag is set
         if args.s:
             pathlib.Path(args.o, c).mkdir(parents=True, exist_ok=True)
 
-        # Compute average areas based on sample groups
-        avg_area_df = (
+        # Compute average areas across replicates of the same sample group
+        c_area_df = (
             area_df.loc[area_df["Lipid_Class"] == c]
             .groupby(["Lipid_Annotation", "Sample_Group"], as_index=False)
             .mean("Area")
             .rename(columns={"Area": "Average_Area"})
         )
-
+        # Compute proportions within each Sample_Group
+        c_area_df["Proportion"] = (
+            c_area_df["Average_Area"] /
+            (
+                c_area_df
+                .groupby(["Sample_Group"])
+                ["Average_Area"]
+                .transform("sum")
+            )
+        )
         if args.t:
-            avg_area_df.to_csv(
+            c_area_df.to_csv(
                 pathlib.Path(
                     args.o, c, f"{c}_Average_Area_Table.csv"
                 ), index=False
             )
 
-        for g in sample_groups:
-            g_avg_area_df = avg_area_df.loc[avg_area_df["Sample_Group"] == g]
+        if args.b:
+            p = plot_marginal_barplot(c_area_df, "N_Carbon")
+            p.savefig(
+                fname=pathlib.Path(args.o, c, f"{c}_N_Carbon_Marginal.png"),
+                bbox_inches="tight"
+            )
+            plt.close()
+            p = plot_marginal_barplot(c_area_df, "N_DB")
+            p.savefig(
+                fname=pathlib.Path(args.o, c, f"{c}_N_DB_Marginal.png"),
+                bbox_inches="tight"
+            )
+            plt.close()
 
+        for g in sample_groups:
+            g_area_df = c_area_df.loc[
+                c_area_df["Sample_Group"] == g,
+                c_area_df.columns != "Sample_Group"
+            ]
             # If only one sum composition, skip to the next lipid
             is_singleton_composition = (
-                g_avg_area_df[["N_Carbon", "N_DB"]]
+                g_area_df[["N_Carbon", "N_DB"]]
                 .drop_duplicates()
                 .shape[0] == 1
             )
             if is_singleton_composition:
                 continue
-
             # Sum together feature area values if they share N_Carbon and N_DB
-            g_avg_area_df = (
-                g_avg_area_df.groupby(["N_Carbon", "N_DB"], as_index=False)
-                .sum("Average_Area")
+            g_area_df = (
+                g_area_df
+                .groupby(["N_Carbon", "N_DB"], as_index=False)
+                .sum()
             )
-
-            # Calculate proportions
-            g_avg_area_df["Proportion"] = (
-                g_avg_area_df["Average_Area"] /
-                g_avg_area_df["Average_Area"].sum()
-            )
-
-            if args.t:
-                g_avg_area_df.to_csv(
-                    pathlib.Path(args.o, c, f"{c}_{g}_Proportions_Table.csv"),
-                    index=False
-                )
-
-            # Get DataFrames to plot marginal barplots
+            # Determine min and max values
             n_carbon_range = np.arange(
-                g_avg_area_df["N_Carbon"].min(),
-                g_avg_area_df["N_Carbon"].max() + 1,
+                g_area_df["N_Carbon"].min(),
+                g_area_df["N_Carbon"].max() + 1,
                 1
             )
             n_db_range = np.arange(
-                g_avg_area_df["N_DB"].min(), g_avg_area_df["N_DB"].max() + 1, 1
+                g_area_df["N_DB"].min(), g_area_df["N_DB"].max() + 1, 1
             )
 
-            # Pad N_Carbon and N_DB values so they are not skipped along axes
-            marginals_df = (
-                pd.DataFrame(
-                    {"N_Carbon": [n_carbon_range], "N_DB": [n_db_range]}
+            # If flag is set, pad N_Carbon and N_DB values so they are not
+            # skipped along axes
+            if args.p:
+                g_area_df = (
+                    pd.DataFrame(
+                        {"N_Carbon": [n_carbon_range], "N_DB": [n_db_range]}
+                    )
+                    .explode("N_Carbon")
+                    .explode("N_DB")
+                    .merge(g_area_df, on=["N_Carbon", "N_DB"], how="outer")
+                    .astype({"N_Carbon": "int32", "N_DB": "int32"})
                 )
-                .explode("N_Carbon")
-                .explode("N_DB")
-                .merge(g_avg_area_df, on=["N_Carbon", "N_DB"], how="outer")
-                .astype({"N_Carbon": "int32", "N_DB": "int32"})
-            )
-
-            # Create wide matrix for sns.heatmap
-            heatmap_df = (
-                marginals_df
-                .pivot(columns="N_Carbon", index="N_DB", values="Proportion")
-            )
-            heatmap_df.fillna(0, inplace=True)
 
             # Generate FACH
-            fig = plot_fach(heatmap_df, marginals_df, args.m, args.c)
-
+            fig = plot_fach(g_area_df, args.m, args.c)
             # Save and close before moving on
             if args.s:
-                fig.savefig(fname=pathlib.Path(args.o, c, f"{c}_{g}.png"))
+                fig.savefig(
+                    fname=pathlib.Path(args.o, c, f"{c}_{g}.png"),
+                    bbox_inches="tight"
+                )
             else:
-                fig.savefig(fname=pathlib.Path(args.o, f"{c}_{g}.png"))
+                fig.savefig(
+                    fname=pathlib.Path(args.o, f"{c}_{g}.png"),
+                    bbox_inches="tight"
+                )
             plt.close()
 
-            if args.k:
-                fig = plot_marginal_barplots(marginals_df)
-                plt.close()
