@@ -1,5 +1,5 @@
 # lipid-heatmaps
- 
+
 This is a script to generate fatty acid composition heatmaps from lipidomics data.
 
 ## Prerequisites
@@ -21,17 +21,34 @@ You'll need to have Python installed on your system to use this tool. A `require
 Use a Terminal (Mac) or CMD session (Windows) to run:
 
 ```
-python3 fach.py [-h] -i I -o O [-m] [-c C]
+fach.py [-h] -i I -o O [-s] [-m] [-t] [-b] [-c C] [-p]
 ```
 
 where:
 
 ```
--i I, --input I   path to the input file
--o O, --output O  path to the desired output directory
--m, --mean        if set, adds dashed lines to the plots denoting mean values
--c C, --cmap C    the desired colormapping (default: 'YlOrBr')
+-h                  if set, prints the help message
+
+-i I, --input I     path to the input file
+
+-o O, --output O    path to the desired output directory
+
+-s, --subdir        if set, saves plots to subdirectories by lipid class
+
+-m, --mean          if set, adds dashed lines to the plots denoting mean values
+
+-t, --tables        if set, saves intermediate data tables as .csv files
+
+-b, --bar           if set, saves marginal barplots for each lipid class
+
+-c C, --cmap C      the desired colormapping to use for the heatmap
+                    (default: 'copper')
+
+-p, --pad           if set, pads the heatmap with N carbon/DB values between
+                    min/max
 ```
+
+Arguments in square brackets are optional.
 
 Example: `python3 fach.py -i ~/Documents/example/area_table.xlsx -o ~/Desktop/output_fach_plots -m` will generate fatty acid composition heatmaps using areas stored in input file `~/Documents/example/area_table.xlsx`. These plots will be saved as png files in `~/Desktop/output_fach_plots`. Dashed lines will appear denoting mean values and the colour map used will be `YlOrBl`.
 
