@@ -21,7 +21,7 @@ You'll need to have Python installed on your system to use this tool. A `require
 Use a Terminal (Mac) or CMD session (Windows) to run:
 
 ```
-fach.py [-h] -i I -o O [-s] [-m] [-t] [-b] [-c C] [-p]
+python3 fach.py [-h] -i I -o O [-s] [-m] [-t] [-b] [-c C] [-p]
 ```
 
 where:
