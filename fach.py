@@ -40,24 +40,17 @@ def parse_lipid_annotation(l):
 def pad_area_df(area_df):
     # Determine min and max values
     n_carbon_range = np.arange(
-        g_area_df["N_Carbon"].min(),
-        g_area_df["N_Carbon"].max() + 1,
-        1
+        area_df["N_Carbon"].min(), area_df["N_Carbon"].max() + 1, 1
     )
-    n_db_range = np.arange(
-        g_area_df["N_DB"].min(), g_area_df["N_DB"].max() + 1, 1
-    )
-
-    g_area_df = (
-        pd.DataFrame(
-            {"N_Carbon": [n_carbon_range], "N_DB": [n_db_range]}
-        )
+    n_db_range = np.arange(area_df["N_DB"].min(), area_df["N_DB"].max() + 1, 1)
+    area_df = (
+        pd.DataFrame({"N_Carbon": [n_carbon_range], "N_DB": [n_db_range]})
         .explode("N_Carbon")
         .explode("N_DB")
-        .merge(g_area_df, on=["N_Carbon", "N_DB"], how="outer")
+        .merge(area_df, on=["N_Carbon", "N_DB"], how="outer")
         .astype({"N_Carbon": "int32", "N_DB": "int32"})
     )
-
+    return(area_df)
 
 
 def plot_fach(area_df, mean_markers, heatmap_cmap):
@@ -198,8 +191,8 @@ if __name__ == "__main__":
         help="if set, saves marginal barplots for each lipid class"
     )
     parser.add_argument(
-        "-c", "--cmap", dest="c", required=False, default="YlOrBr",
-        help="the desired colormapping"
+        "-c", "--cmap", dest="c", required=False, default="copper",
+        help="the desired colormapping to use for the heatmap"
     )
     parser.add_argument(
         "-p", "--pad", dest="p", action="store_true",
@@ -239,7 +232,7 @@ if __name__ == "__main__":
             "Lipid_Class": "category", "N_Carbon": "int32", "N_DB": "int32"
         }
     )
-
+    padded_df = pad_area_df(area_df)
     # Create output directory
     pathlib.Path(args.o).mkdir(parents=True, exist_ok=True)
     if args.t:
@@ -251,7 +244,7 @@ if __name__ == "__main__":
     sample_groups = area_df["Sample_Group"].drop_duplicates().values
 
     # Begin looping through the lipid classes
-    for c in tqdm(lipid_classes):
+    for c in tqdm(lipid_classes[4:6]):
         # Create an output subdirectory if the flag is set
         if args.s:
             pathlib.Path(args.o, c).mkdir(parents=True, exist_ok=True)
