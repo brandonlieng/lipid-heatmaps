@@ -37,18 +37,17 @@ def parse_lipid_annotation(l):
     return [lipid_class, n_c, n_db]
 
 
-def pad_area_df(area_df):
+def pad_margin(area_df, margin):
+    assert margin in ["N_Carbon", "N_DB"]
     # Determine min and max values
-    n_carbon_range = np.arange(
-        area_df["N_Carbon"].min(), area_df["N_Carbon"].max() + 1, 1
+    margin_range = np.arange(
+        area_df[margin].min(), area_df[margin].max() + 1, 1
     )
-    n_db_range = np.arange(area_df["N_DB"].min(), area_df["N_DB"].max() + 1, 1)
     area_df = (
-        pd.DataFrame({"N_Carbon": [n_carbon_range], "N_DB": [n_db_range]})
-        .explode("N_Carbon")
-        .explode("N_DB")
-        .merge(area_df, on=["N_Carbon", "N_DB"], how="outer")
-        .astype({"N_Carbon": "int32", "N_DB": "int32"})
+        pd.DataFrame({margin: [margin_range]})
+        .explode(margin)
+        .merge(area_df, on=[margin], how="outer")
+        .astype({margin: "int32"})
     )
     return(area_df)
 
@@ -136,7 +135,7 @@ def plot_fach(area_df, mean_markers, heatmap_cmap):
     return fig
 
 
-def plot_marginal_barplot(area_df, margin):
+def plot_marginal_barplot(area_df, margin, pad_values=False):
     assert margin in ["N_Carbon", "N_DB"]
     # Sum proportions if they share the same N_Carbon or N_DB, depending on the
     # marginal varable to be plotted
@@ -148,9 +147,11 @@ def plot_marginal_barplot(area_df, margin):
         ["Proportion"]
         .reset_index()
     )
+    if pad_values:
+        area_df = pad_margin(area_df, margin)
     p = sns.catplot(
-        kind="bar", data=c_area_df, x=margin, y="Proportion", col_wrap=2,
-        col="Sample_Group", height=1, aspect=2, errorbar=None, color="blue"
+        kind="bar", data=area_df, x=margin, y="Proportion", col_wrap=2,
+        col="Sample_Group", height=1, aspect=2.5, errorbar=None, color="blue"
     )
     # Decorating plot
     x_label = "Number of carbon atoms" if margin == "N_Carbon" else \
@@ -232,7 +233,7 @@ if __name__ == "__main__":
             "Lipid_Class": "category", "N_Carbon": "int32", "N_DB": "int32"
         }
     )
-    padded_df = pad_area_df(area_df)
+
     # Create output directory
     pathlib.Path(args.o).mkdir(parents=True, exist_ok=True)
     if args.t:
@@ -244,7 +245,7 @@ if __name__ == "__main__":
     sample_groups = area_df["Sample_Group"].drop_duplicates().values
 
     # Begin looping through the lipid classes
-    for c in tqdm(lipid_classes[4:6]):
+    for c in tqdm(lipid_classes[4:5]):
         # Create an output subdirectory if the flag is set
         if args.s:
             pathlib.Path(args.o, c).mkdir(parents=True, exist_ok=True)
@@ -274,13 +275,13 @@ if __name__ == "__main__":
             )
 
         if args.b:
-            p = plot_marginal_barplot(c_area_df, "N_Carbon")
+            p = plot_marginal_barplot(c_area_df, "N_Carbon", args.p)
             p.savefig(
                 fname=pathlib.Path(args.o, c, f"{c}_N_Carbon_Marginal.png"),
                 bbox_inches="tight"
             )
             plt.close()
-            p = plot_marginal_barplot(c_area_df, "N_DB")
+            p = plot_marginal_barplot(c_area_df, "N_DB", args.p)
             p.savefig(
                 fname=pathlib.Path(args.o, c, f"{c}_N_DB_Marginal.png"),
                 bbox_inches="tight"
