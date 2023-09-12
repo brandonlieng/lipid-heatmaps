@@ -1,3 +1,10 @@
+"""
+fach.py
+
+Generate fatty acid composition heatmaps from a table of area values obtained by
+untargeted lipidomics.
+"""
+
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
@@ -122,16 +129,18 @@ def plot_fach(area_df, mean_markers, heatmap_cmap):
         n_db_range = np.arange(area_df["N_DB"].min(), area_df["N_DB"].max(), 1)
         avg_n_carbon = sum(area_df["N_Carbon"] * area_df["Proportion"])
         avg_n_db = sum(area_df["N_DB"] * area_df["Proportion"])
-        ax_heatmap.axvline(
-            x=np.interp(avg_n_carbon, n_carbon_range, range(len(n_carbon_range))) + 0.5,
-            linestyle="--",
-            linewidth=1,
-        )
-        ax_heatmap.axhline(
-            y=np.interp(avg_n_db, n_db_range, range(len(n_db_range))) + 0.5,
-            linestyle="--",
-            linewidth=1,
-        )
+        if len(n_carbon_range) > 1:
+            ax_heatmap.axvline(
+                x=np.interp(avg_n_carbon, n_carbon_range, range(len(n_carbon_range))) + 0.5,
+                linestyle="--",
+                linewidth=1,
+            )
+        if len(n_db_range) > 1:
+            ax_heatmap.axhline(
+                y=np.interp(avg_n_db, n_db_range, range(len(n_db_range))) + 0.5,
+                linestyle="--",
+                linewidth=1,
+            )
     # Decorating plots
     ax_hist_x.spines[["right", "top"]].set_visible(False)
     ax_hist_y.spines[["right", "top"]].set_visible(False)
@@ -157,6 +166,8 @@ def plot_marginal_barplot(area_df, margin, pad_values=False):
     )
     if pad_values:
         area_df = pad_margin(area_df, margin)
+    p_aspect = 2.5 if area_df[margin].max() - area_df[margin].min() <= 10 else 4
+    margin_fontsize = 12 if area_df[margin].max() - area_df[margin].min() <= 10 else 8
     p = sns.catplot(
         kind="bar",
         data=area_df,
@@ -165,7 +176,7 @@ def plot_marginal_barplot(area_df, margin, pad_values=False):
         col_wrap=2,
         col="Sample_Group",
         height=1,
-        aspect=2.5,
+        aspect=p_aspect,
         errorbar=None,
         color="blue",
     )
@@ -175,6 +186,7 @@ def plot_marginal_barplot(area_df, margin, pad_values=False):
     )
     p.set_axis_labels(x_label, "Proportion", size=12)
     p.set_titles("{col_name}", size=12)
+    p.tick_params(axis="x", labelsize=margin_fontsize)
     p.set(ylim=(0, 1))
     return p
 
@@ -355,6 +367,7 @@ if __name__ == "__main__":
                     .explode("N_Carbon")
                     .explode("N_DB")
                     .merge(g_area_df, on=["N_Carbon", "N_DB"], how="outer")
+                    .fillna(0)
                     .astype({"N_Carbon": "int32", "N_DB": "int32"})
                 )
 
