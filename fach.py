@@ -75,7 +75,7 @@ def plot_fach(area_df, mean_markers, heatmap_cmap):
     heatmap_df = area_df.pivot(columns="N_Carbon", index="N_DB", values="Proportion")
     heatmap_df.fillna(0, inplace=True)
     # Initalize a grid of subplots
-    fig = plt.figure(figsize=(8, 8))
+    fig = plt.figure(figsize=(8, 8), dpi=600)
     gs = fig.add_gridspec(
         2,
         2,
@@ -89,11 +89,16 @@ def plot_fach(area_df, mean_markers, heatmap_cmap):
         hspace=0.1,
     )
     ax_heatmap = fig.add_subplot(
-        gs[1, 0],
+        gs[1, 0]
     )
     ax_hist_x = fig.add_subplot(gs[0, 0])
     ax_hist_y = fig.add_subplot(gs[1, 1])
     ax_cbar = fig.add_subplot(gs[0, 1])
+    ax_cbar_pos = ax_cbar.get_position()
+    ax_cbar_pos.y0 = 0.8
+    ax_cbar_pos.y1 = 0.825
+    ax_cbar.set_position(ax_cbar_pos)
+    ax_cbar.tick_params(labelsize=10, rotation=45)
     # Add plots to the subplot axes
     sns.heatmap(
         data=heatmap_df,
@@ -101,6 +106,7 @@ def plot_fach(area_df, mean_markers, heatmap_cmap):
         cbar_ax=ax_cbar,
         cmap=heatmap_cmap,
         cbar_kws={"orientation": "horizontal", "label": "Proportion"},
+        mask=(heatmap_df == 0)
     )
     sns.barplot(
         data=(area_df.groupby("N_Carbon", as_index=False).sum("Proportion")),
@@ -109,7 +115,7 @@ def plot_fach(area_df, mean_markers, heatmap_cmap):
         color="grey",
         errorbar=None,
         ax=ax_hist_x,
-        width=0.9,
+        width=0.95,
     )
     sns.barplot(
         data=(area_df.groupby("N_DB", as_index=False).sum("Proportion")),
@@ -119,7 +125,7 @@ def plot_fach(area_df, mean_markers, heatmap_cmap):
         color="grey",
         errorbar=None,
         ax=ax_hist_y,
-        width=0.9,
+        width=0.95,
     )
     # Determine means and mark them on the heatmap if the flag is set
     if mean_markers:
@@ -245,7 +251,7 @@ if __name__ == "__main__":
         "--cmap",
         dest="c",
         required=False,
-        default="copper",
+        default="magma_r",
         help="the desired colormapping to use for the heatmap",
     )
     parser.add_argument(
