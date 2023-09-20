@@ -21,7 +21,7 @@ You'll need to have Python installed on your system to use this tool. A `require
 Use a Terminal (Mac) or CMD session (Windows) to run:
 
 ```
-python3 fach.py [-h] -i I -o O [-s] [-m] [-t] [-b] [-c C] [-p]
+python3 fach.py [-h] -i I -o O [-s] [-m] [-t] [-b] [-c C] [-p] [-f F] [-l L]
 ```
 
 where:
@@ -46,6 +46,10 @@ where:
 
 -p, --pad           if set, pads the heatmap with N carbon/DB values between
                     min/max
+
+-f F, --font F      the desired font to use when plotting (default: 'Arial')
+
+-l L, --labelsize L the desired font size to use for plot labels (default: 12)
 ```
 
 Arguments in square brackets are optional.
