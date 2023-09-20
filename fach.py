@@ -15,7 +15,6 @@ import re
 import seaborn as sns
 from tqdm.auto import tqdm
 
-plt.rcParams["font.family"] = "Arial"
 
 
 def parse_lipid_annotation(l):
@@ -57,7 +56,7 @@ def pad_margin(area_df, margin):
     return area_df
 
 
-def plot_fach(area_df, mean_markers, heatmap_cmap):
+def plot_fach(area_df, mean_markers, heatmap_cmap, labelsize):
     """
     Plot a fatty acid composition heatmap.
 
@@ -94,11 +93,15 @@ def plot_fach(area_df, mean_markers, heatmap_cmap):
     ax_hist_x = fig.add_subplot(gs[0, 0])
     ax_hist_y = fig.add_subplot(gs[1, 1])
     ax_cbar = fig.add_subplot(gs[0, 1])
+    ax_heatmap.autoscale(tight=True)
+    ax_hist_x.autoscale(tight=True)
+    ax_hist_y.autoscale(tight=True)
+    ax_cbar.autoscale(tight=True)
     ax_cbar_pos = ax_cbar.get_position()
     ax_cbar_pos.y0 = 0.8
     ax_cbar_pos.y1 = 0.825
     ax_cbar.set_position(ax_cbar_pos)
-    ax_cbar.tick_params(labelsize=10, rotation=45)
+    ax_cbar.tick_params(labelsize=labelsize - 2, rotation=45)
     # Add plots to the subplot axes
     sns.heatmap(
         data=heatmap_df,
@@ -150,17 +153,22 @@ def plot_fach(area_df, mean_markers, heatmap_cmap):
     # Decorating plots
     ax_hist_x.spines[["right", "top"]].set_visible(False)
     ax_hist_y.spines[["right", "top"]].set_visible(False)
-    ax_hist_x.tick_params(labelbottom=False, bottom=False, size=12)
-    ax_hist_y.tick_params(labelleft=False, left=False, size=12)
+    ax_hist_x.tick_params(labelbottom=False, bottom=False, size=labelsize)
+    ax_hist_y.tick_params(labelleft=False, left=False, size=labelsize)
     ax_hist_x.set_xlabel(None)
     ax_hist_y.set_ylabel(None)
-    ax_heatmap.set_xlabel("Number of carbon atoms")
-    ax_heatmap.set_ylabel("Number of double bonds")
+    ax_heatmap.set_xlabel("Number of carbon atoms", size=labelsize)
+    ax_heatmap.set_ylabel("Number of double bonds", size=labelsize)
+    ax_heatmap.tick_params(size=labelsize)
+    ax_hist_x.tick_params(size=labelsize)
+    ax_hist_y.tick_params(size=labelsize)
+    ax_hist_x.set_ylabel("Proportion", size=labelsize)
+    ax_hist_y.set_xlabel("Proportion", size=labelsize)
     ax_cbar.xaxis.set_ticks_position("top")
     return fig
 
 
-def plot_marginal_barplot(area_df, margin, pad_values=False):
+def plot_marginal_barplot(area_df, margin, pad_values, labelsize):
     assert margin in ["N_Carbon", "N_DB"]
     # Sum proportions if they share the same N_Carbon or N_DB, depending on the
     # marginal varable to be plotted
@@ -173,7 +181,7 @@ def plot_marginal_barplot(area_df, margin, pad_values=False):
     if pad_values:
         area_df = pad_margin(area_df, margin)
     p_aspect = 2.5 if area_df[margin].max() - area_df[margin].min() <= 10 else 4
-    margin_fontsize = 12 if area_df[margin].max() - area_df[margin].min() <= 10 else 8
+    margin_fontsize = labelsize if area_df[margin].max() - area_df[margin].min() <= 10 else 8
     p = sns.catplot(
         kind="bar",
         data=area_df,
@@ -190,8 +198,8 @@ def plot_marginal_barplot(area_df, margin, pad_values=False):
     x_label = (
         "Number of carbon atoms" if margin == "N_Carbon" else "Number of double bonds"
     )
-    p.set_axis_labels(x_label, "Proportion", size=12)
-    p.set_titles("{col_name}", size=12)
+    p.set_axis_labels(x_label, "Proportion", size=labelsize)
+    p.set_titles("{col_name}", size=labelsize)
     p.tick_params(axis="x", labelsize=margin_fontsize)
     p.set(ylim=(0, 1))
     return p
@@ -261,7 +269,26 @@ if __name__ == "__main__":
         action="store_true",
         help="if set, pads the heatmap with N carbon/DB values between min/max",
     )
+    parser.add_argument(
+        "-f",
+        "--font",
+        dest="f",
+        required=False,
+        default="Arial",
+        help="the desired font to use when plotting"
+    )
+    parser.add_argument(
+        "-l",
+        "--labelsize",
+        dest="l",
+        required=False,
+        default=12,
+        type=int,
+        help="the desired font size to use for plot labels"
+    )
     args = parser.parse_args()
+
+    plt.rcParams["font.family"] = args.f
 
     # Import data table
     area_df = pd.read_excel(args.i, header=0, index_col=0)
@@ -332,13 +359,13 @@ if __name__ == "__main__":
             )
 
         if args.b:
-            p = plot_marginal_barplot(c_area_df, "N_Carbon", args.p)
+            p = plot_marginal_barplot(c_area_df, "N_Carbon", args.p, args.l)
             p.savefig(
                 fname=pathlib.Path(args.o, c, f"{c}_N_Carbon_Marginal.png"),
                 bbox_inches="tight",
             )
             plt.close()
-            p = plot_marginal_barplot(c_area_df, "N_DB", args.p)
+            p = plot_marginal_barplot(c_area_df, "N_DB", args.p, args.l)
             p.savefig(
                 fname=pathlib.Path(args.o, c, f"{c}_N_DB_Marginal.png"),
                 bbox_inches="tight",
@@ -378,7 +405,7 @@ if __name__ == "__main__":
                 )
 
             # Generate FACH
-            fig = plot_fach(g_area_df, args.m, args.c)
+            fig = plot_fach(g_area_df, args.m, args.c, args.l)
             # Save and close before moving on
             if args.s:
                 fig.savefig(
