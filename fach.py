@@ -16,7 +16,6 @@ import seaborn as sns
 from tqdm.auto import tqdm
 
 
-
 def parse_lipid_annotation(l):
     """
     Parse a lipid annotation into its corresponding lipid class, number of
@@ -56,7 +55,7 @@ def pad_margin(area_df, margin):
     return area_df
 
 
-def plot_fach(area_df, mean_markers, heatmap_cmap, labelsize):
+def plot_fach(area_df, mean_markers, plot_params):
     """
     Plot a fatty acid composition heatmap.
 
@@ -87,29 +86,22 @@ def plot_fach(area_df, mean_markers, heatmap_cmap, labelsize):
         wspace=0.1,
         hspace=0.1,
     )
-    ax_heatmap = fig.add_subplot(
-        gs[1, 0]
-    )
+    ax_heatmap = fig.add_subplot(gs[1, 0])
     ax_hist_x = fig.add_subplot(gs[0, 0])
     ax_hist_y = fig.add_subplot(gs[1, 1])
     ax_cbar = fig.add_subplot(gs[0, 1])
-    ax_heatmap.autoscale(tight=True)
-    ax_hist_x.autoscale(tight=True)
-    ax_hist_y.autoscale(tight=True)
-    ax_cbar.autoscale(tight=True)
     ax_cbar_pos = ax_cbar.get_position()
     ax_cbar_pos.y0 = 0.8
     ax_cbar_pos.y1 = 0.825
     ax_cbar.set_position(ax_cbar_pos)
-    ax_cbar.tick_params(labelsize=labelsize - 2, rotation=45)
     # Add plots to the subplot axes
     sns.heatmap(
         data=heatmap_df,
         ax=ax_heatmap,
         cbar_ax=ax_cbar,
-        cmap=heatmap_cmap,
+        cmap=plot_params["cmap"],
         cbar_kws={"orientation": "horizontal", "label": "Proportion"},
-        mask=(heatmap_df == 0)
+        mask=(heatmap_df == 0),
     )
     sns.barplot(
         data=(area_df.groupby("N_Carbon", as_index=False).sum("Proportion")),
@@ -140,35 +132,52 @@ def plot_fach(area_df, mean_markers, heatmap_cmap, labelsize):
         avg_n_db = sum(area_df["N_DB"] * area_df["Proportion"])
         if len(n_carbon_range) > 1:
             ax_heatmap.axvline(
-                x=np.interp(avg_n_carbon, n_carbon_range, range(len(n_carbon_range))) + 0.5,
+                x=np.interp(avg_n_carbon, n_carbon_range, range(len(n_carbon_range)))
+                + 0.5,
                 linestyle="--",
-                linewidth=1,
+                linewidth=2,
             )
         if len(n_db_range) > 1:
             ax_heatmap.axhline(
                 y=np.interp(avg_n_db, n_db_range, range(len(n_db_range))) + 0.5,
                 linestyle="--",
-                linewidth=1,
+                linewidth=2,
             )
-    # Decorating plots
+    # Decorating heatmap
+    ax_heatmap.set_xlabel(
+        "Number of carbon atoms", size=plot_params["labelsize"], weight="bold"
+    )
+    ax_heatmap.set_ylabel(
+        "Number of double bonds", size=plot_params["labelsize"], weight="bold"
+    )
+    ax_heatmap.tick_params(labelsize=plot_params["labelsize"])
+    ax_heatmap.set_xticklabels(ax_heatmap.get_xticklabels(), weight="bold")
+    ax_heatmap.set_yticklabels(ax_heatmap.get_yticklabels(), weight="bold")
+    # Decorating top marginal barplot
     ax_hist_x.spines[["right", "top"]].set_visible(False)
-    ax_hist_y.spines[["right", "top"]].set_visible(False)
-    ax_hist_x.tick_params(labelbottom=False, bottom=False, size=labelsize)
-    ax_hist_y.tick_params(labelleft=False, left=False, size=labelsize)
     ax_hist_x.set_xlabel(None)
+    ax_hist_x.set_ylabel("Proportion", size=plot_params["labelsize"], weight="bold")
+    ax_hist_x.tick_params(labelbottom=False, bottom=False)
+    ax_hist_x.set_yticks(ax_hist_x.get_yticks(), labels=ax_hist_x.get_yticklabels())
+    ax_hist_x.set_yticklabels(
+        ax_hist_x.get_yticklabels(), fontsize=plot_params["labelsize"], weight="bold"
+    )
+    # Decorating right marginal barplot
+    ax_hist_y.spines[["right", "top"]].set_visible(False)
+    ax_hist_y.set_xlabel("Proportion", size=plot_params["labelsize"], weight="bold")
     ax_hist_y.set_ylabel(None)
-    ax_heatmap.set_xlabel("Number of carbon atoms", size=labelsize)
-    ax_heatmap.set_ylabel("Number of double bonds", size=labelsize)
-    ax_heatmap.tick_params(size=labelsize)
-    ax_hist_x.tick_params(size=labelsize)
-    ax_hist_y.tick_params(size=labelsize)
-    ax_hist_x.set_ylabel("Proportion", size=labelsize)
-    ax_hist_y.set_xlabel("Proportion", size=labelsize)
+    ax_hist_y.tick_params(labelleft=False, left=False)
+    ax_hist_y.set_xticks(ax_hist_y.get_xticks(), labels=ax_hist_y.get_xticklabels())
+    ax_hist_y.set_xticklabels(
+        ax_hist_y.get_xticklabels(), fontsize=plot_params["labelsize"], weight="bold"
+    )
+    # Decorating colourbar
     ax_cbar.xaxis.set_ticks_position("top")
+    ax_cbar.set_xlabel("Proportion", size=plot_params["labelsize"], weight="bold")
     return fig
 
 
-def plot_marginal_barplot(area_df, margin, pad_values, labelsize):
+def plot_marginal_barplot(area_df, margin, pad_values, plot_params):
     assert margin in ["N_Carbon", "N_DB"]
     # Sum proportions if they share the same N_Carbon or N_DB, depending on the
     # marginal varable to be plotted
@@ -181,7 +190,11 @@ def plot_marginal_barplot(area_df, margin, pad_values, labelsize):
     if pad_values:
         area_df = pad_margin(area_df, margin)
     p_aspect = 2.5 if area_df[margin].max() - area_df[margin].min() <= 10 else 4
-    margin_fontsize = labelsize if area_df[margin].max() - area_df[margin].min() <= 10 else 8
+    margin_fontsize = (
+        plot_params["labelsize"]
+        if area_df[margin].max() - area_df[margin].min() <= 10
+        else 8
+    )
     p = sns.catplot(
         kind="bar",
         data=area_df,
@@ -189,18 +202,21 @@ def plot_marginal_barplot(area_df, margin, pad_values, labelsize):
         y="Proportion",
         col_wrap=2,
         col="Sample_Group",
-        height=1,
+        height=2,
         aspect=p_aspect,
         errorbar=None,
         color="blue",
     )
+    ### FIXME: Warning printed that "The figure layout has changed to tight" - this
+    ### line does not fix that warning
+    p.tight_layout()
     # Decorating plot
     x_label = (
         "Number of carbon atoms" if margin == "N_Carbon" else "Number of double bonds"
     )
-    p.set_axis_labels(x_label, "Proportion", size=labelsize)
-    p.set_titles("{col_name}", size=labelsize)
-    p.tick_params(axis="x", labelsize=margin_fontsize)
+    p.set_axis_labels(x_label, "Proportion", size=plot_params["labelsize"])
+    p.set_titles("{col_name}", size=plot_params["labelsize"])
+    p.tick_params(axis="both", labelsize=plot_params["labelsize"])
     p.set(ylim=(0, 1))
     return p
 
@@ -275,7 +291,7 @@ if __name__ == "__main__":
         dest="f",
         required=False,
         default="Arial",
-        help="the desired font to use when plotting"
+        help="the desired font to use when plotting",
     )
     parser.add_argument(
         "-l",
@@ -284,10 +300,11 @@ if __name__ == "__main__":
         required=False,
         default=12,
         type=int,
-        help="the desired font size to use for plot labels"
+        help="the desired font size to use for plot labels",
     )
     args = parser.parse_args()
 
+    plot_params = {"cmap": args.c, "labelsize": args.l}
     plt.rcParams["font.family"] = args.f
 
     # Import data table
@@ -359,16 +376,14 @@ if __name__ == "__main__":
             )
 
         if args.b:
-            p = plot_marginal_barplot(c_area_df, "N_Carbon", args.p, args.l)
+            p = plot_marginal_barplot(c_area_df, "N_Carbon", args.p, plot_params)
             p.savefig(
                 fname=pathlib.Path(args.o, c, f"{c}_N_Carbon_Marginal.png"),
-                bbox_inches="tight",
             )
             plt.close()
-            p = plot_marginal_barplot(c_area_df, "N_DB", args.p, args.l)
+            p = plot_marginal_barplot(c_area_df, "N_DB", args.p, plot_params)
             p.savefig(
                 fname=pathlib.Path(args.o, c, f"{c}_N_DB_Marginal.png"),
-                bbox_inches="tight",
             )
             plt.close()
 
@@ -401,11 +416,11 @@ if __name__ == "__main__":
                     .explode("N_DB")
                     .merge(g_area_df, on=["N_Carbon", "N_DB"], how="outer")
                     .fillna(0)
-                    .astype({"N_Carbon": "int32", "N_DB": "int32"})
                 )
+            g_area_df = g_area_df.astype({"N_Carbon": "int32", "N_DB": "int32"})
 
             # Generate FACH
-            fig = plot_fach(g_area_df, args.m, args.c, args.l)
+            fig = plot_fach(g_area_df, args.m, plot_params)
             # Save and close before moving on
             if args.s:
                 fig.savefig(
