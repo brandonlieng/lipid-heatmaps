@@ -43,6 +43,16 @@ def parse_lipid_annotation(l):
 
 
 def pad_margin(area_df, margin):
+    """
+    Pad a DataFrame of lipid features with values between the min and max N_Carbon or
+    N_DB values.
+
+    :param area_df: the DataFrame to be padded
+    :param margin:  a string denoting the margin to be padded; must be "N_Carbon" or
+                    "N_DB"
+
+    :return:        the padded DataFrame
+    """
     assert margin in ["N_Carbon", "N_DB"]
     # Determine min and max values
     margin_range = np.arange(area_df[margin].min(), area_df[margin].max() + 1, 1)
@@ -65,7 +75,7 @@ def plot_fach(area_df, mean_markers, plot_params):
     :param mean_markers:    a boolean denoting whether or not to draw markers
                             showing mean number of carbon atoms/double bonds
 
-    :param heatmap_cmap:    a string denoting the desired heatmap colourmap
+    :param plot_params:     a dict holding plot parameters
 
     :return:                a Matplotlib figure
     """
@@ -178,6 +188,21 @@ def plot_fach(area_df, mean_markers, plot_params):
 
 
 def plot_marginal_barplot(area_df, margin, pad_values, plot_params):
+    """
+    Plot a set of marginal distributions as barplots.
+
+    :param area_df:         a pandas DataFrame holding N_Carbon/N_DB data for
+                            features within a lipid class and sample group
+
+    :param margin:          a string denoting the margin to be plotted; must be one of
+                            "N_Carbon" or "N_DB"
+
+    :param pad_values:      a boolean denoting whether or not to pad missing values
+
+    :param plot_params:     a dict holding plot parameters
+
+    :return:                a Matplotlib figure
+    """
     assert margin in ["N_Carbon", "N_DB"]
     # Sum proportions if they share the same N_Carbon or N_DB, depending on the
     # marginal varable to be plotted
