@@ -6,6 +6,7 @@ untargeted lipidomics.
 """
 
 import argparse
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -331,6 +332,7 @@ if __name__ == "__main__":
 
     plot_params = {"cmap": args.c, "labelsize": args.l}
     plt.rcParams["font.family"] = args.f
+    matplotlib.use('Agg')
 
     # Import data table
     area_df = pd.read_excel(args.i, header=0, index_col=0)
@@ -397,7 +399,7 @@ if __name__ == "__main__":
         )
         if args.t:
             c_area_df.to_csv(
-                pathlib.Path(args.o, c, f"{c}_Average_Area_Table.csv"), index=False
+                pathlib.Path(args.o, f"{c}_Average_Area_Table.csv"), index=False
             )
 
         if args.b:
