@@ -83,7 +83,6 @@ def plot_fach(area_df, heatmap_cmap):
             )
         ]
     )
-    pad_df.to_csv("~/Desktop/test.csv")
     heatmap_df = (
         pad_df
         .groupby(["N_Carbon", "N_DB"], as_index=False)
@@ -388,30 +387,53 @@ if __name__ == "__main__":
             fig, ax_heatmap, ax_cbar, ax_hist_x, ax_hist_y = plot_fach(
                 g_area_df, args.c
             )
-    #         # Determine means and mark them on the heatmap if the flag is set
-    #         if mean_markers:
-    #             n_carbon_range = np.arange(
-    #                 area_df["N_Carbon"].min(), area_df["N_Carbon"].max() + 1, 1
-    #             )
-    #             n_db_range = np.arange(area_df["N_DB"].min(), area_df["N_DB"].max() + 1, 1)
-    #             if len(n_carbon_range) > 1:
-    #                 weighted = g_area_df.loc[:, ["N_Carbon", "Area"]]
-    #                 weighted.loc[:, "Proportion"] = weighted["Area"] / g_area_df["Area"].sum()
-    #                 avg_n_carbon = sum(weighted.groupby("N_Carbon")["Proportion"].sum() * n_carbon_range)
-    #                 ax_heatmap.axvline(
-    #                     x=np.interp(avg_n_carbon, n_carbon_range, range(len(n_carbon_range))) + 0.5,
-    #                     linestyle="--",
-    #                     linewidth=1,
-    #                 )
-    #             if len(n_db_range) > 1:
-    #                 weighted = g_area_df.loc[:, ["N_DB", "Area"]]
-    #                 weighted.loc[:, "Proportion"] = weighted["Area"] / g_area_df["Area"].sum()
-    #                 avg_n_db = sum(weighted.groupby("N_DB")["Proportion"].sum() * n_db_range)
-    #                 ax_heatmap.axhline(
-    #                     y=np.interp(avg_n_db, n_db_range, range(len(n_db_range))) + 0.5,
-    #                     linestyle="--",
-    #                     linewidth=1,
-    #                 )
+            # Determine means and mark them on the heatmap if the flag is set
+            if args.m:
+                n_carbon_range = np.arange(
+                    g_area_df["N_Carbon"].min(), g_area_df["N_Carbon"].max() + 1, 1
+                )
+                n_db_range = np.arange(
+                    g_area_df["N_DB"].min(), g_area_df["N_DB"].max() + 1, 1
+                )
+                n_carbon_values = g_area_df["N_Carbon"].drop_duplicates().values
+                n_db_values = g_area_df["N_DB"].drop_duplicates().values
+                if n_carbon_values.size > 1:
+                    avg_n_carbon = sum(
+                        (
+                            g_area_df[["N_Carbon", "Area"]].groupby("N_Carbon").sum() /
+                            g_area_df["Area"].sum()
+                        ).values.flatten() *
+                        n_carbon_values
+                    )
+                    interpolated_n_carbon = np.interp(
+                        avg_n_carbon,
+                        n_carbon_range,
+                        range(len(n_carbon_range))
+                    )
+                    ax_heatmap.axvline(
+                        x= interpolated_n_carbon + 0.5,
+                        linestyle="--",
+                        linewidth=1,
+                    )
+                if n_db_values.size > 1:
+                    avg_n_db = sum(
+                        (
+                            g_area_df[["N_DB", "Area"]].groupby("N_DB").sum() /
+                            g_area_df["Area"].sum()
+                        )
+                        .values.flatten() *
+                        n_db_values
+                    )
+                    interpolated_avg_n_db = np.interp(
+                        avg_n_db,
+                        n_db_range,
+                        range(len(n_db_range))
+                    )
+                    ax_heatmap.axhline(
+                        y=interpolated_avg_n_db + 0.5,
+                        linestyle="--",
+                        linewidth=1,
+                    )
             # Decorating heatmap
             ax_heatmap.set_xlabel(
                 "Number of carbon atoms", size=args.l
