@@ -73,16 +73,19 @@ def plot_fach(area_df, heatmap_cmap):
     pad_df = pd.DataFrame(
         pad_df, columns=["Sample_ID", "N_Carbon", "N_DB", "Proportional_Contribution"]
     )
-    pad_df = pd.concat(
-        [
-            pad_df,
-            (
-                area_df.groupby(["Sample_ID", "N_Carbon", "N_DB"], as_index=False)[
-                    "Proportional_Contribution"
-                ].mean()
-            ),
-        ]
-    )
+    if not pad_df.empty:
+        pad_df = pd.concat(
+            [
+                pad_df,
+                (
+                    area_df.groupby(["Sample_ID", "N_Carbon", "N_DB"], as_index=False)[
+                        "Proportional_Contribution"
+                    ].mean()
+                ),
+            ]
+        )
+    else:
+        pad_df = area_df
     heatmap_df = (
         pad_df.groupby(["N_Carbon", "N_DB"], as_index=False)[
             "Proportional_Contribution"
@@ -186,7 +189,8 @@ def plot_marginal_barplot(area_df, margin):
             for s in tmp_df["Sample_ID"].drop_duplicates():
                 pad_df.append([i, s, 0])
     pad_df = pd.DataFrame(pad_df, columns=[m, "Sample_ID", "Proportional_Contribution"])
-    tmp_df = pd.concat([tmp_df, pad_df])
+    if not pad_df.empty:
+        tmp_df = pd.concat([tmp_df, pad_df])
     fig, ax = plt.subplots(figsize=(8, 4))
     p = sns.barplot(
         data=tmp_df,
@@ -373,7 +377,7 @@ if __name__ == "__main__":
     ).sum()
     # Get the total area detected in each sample per lipid class
     total_sample_class_areas = (
-        area_df.groupby(["Sample_ID", "Lipid_Class"], as_index=False)["Area"]
+        area_df.groupby(["Sample_ID", "Lipid_Class"], observed=True, as_index=False)["Area"]
         .sum()
         .rename(columns={"Area": "Sample_Class_Total_Area"})
     )
