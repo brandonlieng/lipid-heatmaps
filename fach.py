@@ -231,6 +231,13 @@ if __name__ == "__main__":
         help="if set, saves marginal barplots for each lipid class",
     )
     parser.add_argument(
+        "-a",
+        "--annotate",
+        dest="a",
+        action="store_true",
+        help="if set, annotates FACHs with average N_Carbon and N_DB values",
+    )
+    parser.add_argument(
         "-c",
         "--cmap",
         dest="c",
@@ -458,6 +465,19 @@ if __name__ == "__main__":
                         linestyle="--",
                         linewidth=1,
                     )
+            if args.a:
+                ax_heatmap.text(
+                    x=0.5,
+                    y=-0.15,
+                    s=f"Avg. number of carbon atoms: {avg_n_carbon:.2f}"
+                    + "      "
+                    + f"Avg. number of DB: {avg_n_db:.2f}",
+                    wrap=True,
+                    transform=ax_heatmap.transAxes,
+                    horizontalalignment="center",
+                    verticalalignment="top",
+                    fontsize=args.l,
+                )
             # Decorating heatmap
             ax_heatmap.set_xlabel("Number of carbon atoms", size=args.l)
             ax_heatmap.set_ylabel("Number of double bonds", size=args.l)
