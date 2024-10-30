@@ -319,6 +319,8 @@ if __name__ == "__main__":
         help="the upper N_Carbon bound to use when plotting",
     )
     args = parser.parse_args()
+    # Create output directory
+    pathlib.Path(args.o).mkdir(exist_ok=True)
     # Set global plotting params
     plt.rcParams["font.family"] = args.f
     matplotlib.use("Agg")
@@ -338,16 +340,17 @@ if __name__ == "__main__":
     )
     area_df = pd.concat([area_df, anno_df], axis=1)
     if pd.isnull(area_df["Lipid_Class"]).sum() > 0:
-        print(
-            f"{pd.isnull(anno_df).values.sum() / 3:.0f} lipid annotations could not be "
-            "parsed and have been removed"
-        )
-    with open("Unparsable_Lipids.txt", "w") as f:
-        for m in (
+        unparsable = (
             area_df.loc[pd.isnull(area_df["Lipid_Class"]), "Lipid_Annotation"]
-            .drop_duplicates()
-            .values
-        ):
+            .drop_duplicates().
+            values
+        )
+        print(
+            f"{unparsable.size} lipid annotations could not be parsed and have been "
+            "removed"
+        )
+    with open(pathlib.Path(args.o, "Unparsable_Lipids.txt"), "w") as f:
+        for m in unparsable:
             f.write(f"{m}\n")
     area_df = area_df.loc[~pd.isnull(area_df["Lipid_Class"])]
     area_df = area_df.drop(columns="Lipid_Annotation")
@@ -386,8 +389,6 @@ if __name__ == "__main__":
         "Sample_Group",
         ["_".join(i.split("_")[:-1]) for i in area_df["Sample_ID"].values],
     )
-    # Create output directory
-    pathlib.Path(args.o).mkdir(exist_ok=True)
     # Save the area table with proportional contributions to a CSV file
     if args.t:
         area_df.to_csv(pathlib.Path(args.o, "Parsed_Area_Table.csv"), index=False)
