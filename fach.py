@@ -131,7 +131,12 @@ def plot_fach(area_df, heatmap_cmap):
         x="N_Carbon",
         y="Proportional_Contribution",
         fill=False,
-        errorbar=(lambda x: (x.min(), x.max())),
+        color="k",
+        errorbar=(
+            args.ebar
+            if args.ebar in ["ci", "pi", "se", "sd"]
+            else (lambda x: (x.min(), x.max()))
+        ),
         ax=ax_hist_x,
         width=0.8,
     )
@@ -145,7 +150,12 @@ def plot_fach(area_df, heatmap_cmap):
         x="Proportional_Contribution",
         orient="h",
         fill=False,
-        errorbar=(lambda x: (x.min(), x.max())),
+        color="k",
+        errorbar=(
+            args.ebar
+            if args.ebar in ["ci", "pi", "se", "sd"]
+            else (lambda x: (x.min(), x.max()))
+        ),
         ax=ax_hist_y,
         width=0.8,
     )
@@ -183,7 +193,12 @@ def plot_marginal_barplot(area_df, margin):
         x=margin,
         y="Proportional_Contribution",
         fill=False,
-        errorbar=(lambda x: (x.min(), x.max())),
+        color="k",
+        errorbar=(
+            args.ebar
+            if args.ebar in ["ci", "pi", "se", "sd"]
+            else (lambda x: (x.min(), x.max()))
+        ),
     )
     return (fig, ax)
 
@@ -293,6 +308,15 @@ if __name__ == "__main__":
         default=None,
         type=int,
         help="the upper N_DB bound to use when plotting",
+    )
+    parser.add_argument(
+        "--ebar",
+        dest="ebar",
+        required=False,
+        default="sd",
+        choices=["ci", "pi", "se", "sd", "minmax"],
+        type=str,
+        help="the upper N_Carbon bound to use when plotting",
     )
     args = parser.parse_args()
     # Set global plotting params
