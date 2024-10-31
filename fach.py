@@ -25,7 +25,7 @@ def parse_lipid_annotation(l):
 
     :return:    list containing [lipid class, n_c, n_db]
     """
-    pattern = "^[A-z]+ [O-]*[P-]*\d+:\d+"
+    pattern = r"^[A-z]+ [O-]*[P-]*\d+:\d+"
     # Expected pattern not found, skip parsing this lipid annotation
     if len(re.findall(pattern, l)) == 0:
         return [None, None, None]
@@ -65,30 +65,31 @@ def plot_fach(area_df, heatmap_cmap):
     for n_c in range(area_df["N_Carbon"].min(), area_df["N_Carbon"].max() + 1):
         for n_db in range(area_df["N_DB"].min(), area_df["N_DB"].max() + 1):
             if (
-                n_c not in area_df["N_Carbon"].values or \
-                n_db not in area_df["N_DB"].values
+                n_c not in area_df["N_Carbon"].values
+                or n_db not in area_df["N_DB"].values
             ):
                 for s in area_df["Sample_ID"].drop_duplicates():
                     pad_df.append([s, n_c, n_db, 0])
     pad_df = pd.DataFrame(
-        pad_df,
-        columns=["Sample_ID", "N_Carbon", "N_DB", "Proportional_Contribution"]
+        pad_df, columns=["Sample_ID", "N_Carbon", "N_DB", "Proportional_Contribution"]
     )
-    pad_df = pd.concat(
-        [
-            pad_df,
-            (
-                area_df
-                .groupby(["Sample_ID", "N_Carbon", "N_DB"], as_index=False)
-                ["Proportional_Contribution"]
-                .mean()
-            )
-        ]
-    )
+    if not pad_df.empty:
+        pad_df = pd.concat(
+            [
+                pad_df,
+                (
+                    area_df.groupby(["Sample_ID", "N_Carbon", "N_DB"], as_index=False)[
+                        "Proportional_Contribution"
+                    ].mean()
+                ),
+            ]
+        )
+    else:
+        pad_df = area_df
     heatmap_df = (
-        pad_df
-        .groupby(["N_Carbon", "N_DB"], as_index=False)
-        ["Proportional_Contribution"]
+        pad_df.groupby(["N_Carbon", "N_DB"], as_index=False)[
+            "Proportional_Contribution"
+        ]
         .mean()
         .pivot(columns="N_Carbon", index="N_DB", values="Proportional_Contribution")
     )
@@ -105,7 +106,7 @@ def plot_fach(area_df, heatmap_cmap):
         bottom=0.1,
         top=0.9,
         wspace=0.1,
-        hspace=0.1
+        hspace=0.1,
     )
     ax_heatmap = fig.add_subplot(gs[1, 0])
     ax_hist_x = fig.add_subplot(gs[0, 0])
@@ -126,30 +127,38 @@ def plot_fach(area_df, heatmap_cmap):
     )
     sns.barplot(
         data=(
-            pad_df
-            .groupby(["N_Carbon", "Sample_ID"], as_index=False)
-            ["Proportional_Contribution"]
-            .sum()
-         ),
+            pad_df.groupby(["N_Carbon", "Sample_ID"], as_index=False)[
+                "Proportional_Contribution"
+            ].sum()
+        ),
         x="N_Carbon",
         y="Proportional_Contribution",
         fill=False,
-        errorbar=(lambda x: (x.min(), x.max())),
+        color="k",
+        errorbar=(
+            args.ebar
+            if args.ebar in ["ci", "pi", "se", "sd"]
+            else (lambda x: (x.min(), x.max()))
+        ),
         ax=ax_hist_x,
         width=0.8,
     )
     sns.barplot(
         data=(
-            pad_df
-            .groupby(["N_DB", "Sample_ID"], as_index=False)
-            ["Proportional_Contribution"]
-            .sum()
+            pad_df.groupby(["N_DB", "Sample_ID"], as_index=False)[
+                "Proportional_Contribution"
+            ].sum()
         ),
         y="N_DB",
         x="Proportional_Contribution",
         orient="h",
         fill=False,
-        errorbar=(lambda x: (x.min(), x.max())),
+        color="k",
+        errorbar=(
+            args.ebar
+            if args.ebar in ["ci", "pi", "se", "sd"]
+            else (lambda x: (x.min(), x.max()))
+        ),
         ax=ax_hist_y,
         width=0.8,
     )
@@ -171,26 +180,29 @@ def plot_marginal_barplot(area_df, margin):
     assert margin in ["N_Carbon", "N_DB"]
     # Sum proportions if they share the same N_Carbon or N_DB, depending on the
     # marginal varable to be plotted
-    tmp_df = (
-        area_df
-        .groupby([margin, "Sample_ID"], as_index=False)
-        ["Proportional_Contribution"]
-        .sum()
-    )
+    tmp_df = area_df.groupby([margin, "Sample_ID"], as_index=False)[
+        "Proportional_Contribution"
+    ].sum()
     pad_df = []
     for i in range(tmp_df[m].min(), tmp_df[m].max() + 1):
         if i not in tmp_df[m].values:
             for s in tmp_df["Sample_ID"].drop_duplicates():
                 pad_df.append([i, s, 0])
     pad_df = pd.DataFrame(pad_df, columns=[m, "Sample_ID", "Proportional_Contribution"])
-    tmp_df = pd.concat([tmp_df, pad_df])
+    if not pad_df.empty:
+        tmp_df = pd.concat([tmp_df, pad_df])
     fig, ax = plt.subplots(figsize=(8, 4))
     p = sns.barplot(
         data=tmp_df,
         x=margin,
         y="Proportional_Contribution",
         fill=False,
-        errorbar=(lambda x: (x.min(), x.max()))
+        color="k",
+        errorbar=(
+            args.ebar
+            if args.ebar in ["ci", "pi", "se", "sd"]
+            else (lambda x: (x.min(), x.max()))
+        ),
     )
     return (fig, ax)
 
@@ -238,6 +250,13 @@ if __name__ == "__main__":
         help="if set, saves marginal barplots for each lipid class",
     )
     parser.add_argument(
+        "-a",
+        "--annotate",
+        dest="a",
+        action="store_true",
+        help="if set, annotates FACHs with average N_Carbon and N_DB values",
+    )
+    parser.add_argument(
         "-c",
         "--cmap",
         dest="c",
@@ -268,7 +287,7 @@ if __name__ == "__main__":
         required=False,
         default=None,
         type=int,
-        help="the lower N_Carbon bound to use when plotting"
+        help="the lower N_Carbon bound to use when plotting",
     )
     parser.add_argument(
         "--carbonmax",
@@ -276,7 +295,7 @@ if __name__ == "__main__":
         required=False,
         default=None,
         type=int,
-        help="the upper N_Carbon bound to use when plotting"
+        help="the upper N_Carbon bound to use when plotting",
     )
     parser.add_argument(
         "--dbmin",
@@ -284,7 +303,7 @@ if __name__ == "__main__":
         required=False,
         default=None,
         type=int,
-        help="the lower N_DB bound to use when plotting"
+        help="the lower N_DB bound to use when plotting",
     )
     parser.add_argument(
         "--dbmax",
@@ -292,18 +311,28 @@ if __name__ == "__main__":
         required=False,
         default=None,
         type=int,
-        help="the upper N_DB bound to use when plotting"
+        help="the upper N_DB bound to use when plotting",
+    )
+    parser.add_argument(
+        "--ebar",
+        dest="ebar",
+        required=False,
+        default="sd",
+        choices=["ci", "pi", "se", "sd", "minmax"],
+        type=str,
+        help="the upper N_Carbon bound to use when plotting",
     )
     args = parser.parse_args()
+    # Create output directory
+    pathlib.Path(args.o).mkdir(exist_ok=True)
     # Set global plotting params
     plt.rcParams["font.family"] = args.f
-    matplotlib.use('Agg')
+    matplotlib.use("Agg")
     # Import the data matrix
     area_df = pd.read_excel(args.i, header=0, index_col=0)
     # Un-pivot the matrix to a long-format table
     area_df = (
-        area_df
-        .melt(ignore_index=False)
+        area_df.melt(ignore_index=False)
         .reset_index()
         .rename(columns={"variable": "Sample_ID", "value": "Area"})
     )
@@ -311,14 +340,22 @@ if __name__ == "__main__":
     # that cannot be parsed
     anno_df = pd.DataFrame.from_records(
         area_df["Lipid_Annotation"].apply(parse_lipid_annotation),
-        columns=["Lipid_Class", "N_Carbon", "N_DB"]
+        columns=["Lipid_Class", "N_Carbon", "N_DB"],
     )
-    area_df = pd.concat([area_df,anno_df], axis=1)
+    area_df = pd.concat([area_df, anno_df], axis=1)
     if pd.isnull(area_df["Lipid_Class"]).sum() > 0:
-        print(
-            f"{pd.isnull(anno_df).values.sum() / 3:.0f} lipid annotations could not be "
-            "parsed and have been removed"
+        unparsable = (
+            area_df.loc[pd.isnull(area_df["Lipid_Class"]), "Lipid_Annotation"]
+            .drop_duplicates().
+            values
         )
+        print(
+            f"{unparsable.size} lipid annotations could not be parsed and have been "
+            "removed"
+        )
+    with open(pathlib.Path(args.o, "Unparsable_Lipids.txt"), "w") as f:
+        for m in unparsable:
+            f.write(f"{m}\n")
     area_df = area_df.loc[~pd.isnull(area_df["Lipid_Class"])]
     area_df = area_df.drop(columns="Lipid_Annotation")
     # Fix dtypes
@@ -328,25 +365,19 @@ if __name__ == "__main__":
             "Lipid_Class": "category",
             "N_Carbon": "int32",
             "N_DB": "int32",
-            "Area": "float"
+            "Area": "float",
         }
     )
     # Sum lipid feature areas within samples if they share the same sum composition
-    area_df = (
-        area_df
-        .groupby(
-            ["Sample_ID", "Lipid_Class", "N_Carbon", "N_DB"],
-            as_index=False,
-            sort=False,
-            observed=True
-        )
-        .sum()
-    )
+    area_df = area_df.groupby(
+        ["Sample_ID", "Lipid_Class", "N_Carbon", "N_DB"],
+        as_index=False,
+        sort=False,
+        observed=True,
+    ).sum()
     # Get the total area detected in each sample per lipid class
     total_sample_class_areas = (
-        area_df
-        .groupby(["Sample_ID", "Lipid_Class"], as_index=False)
-        ["Area"]
+        area_df.groupby(["Sample_ID", "Lipid_Class"], observed=True, as_index=False)["Area"]
         .sum()
         .rename(columns={"Area": "Sample_Class_Total_Area"})
     )
@@ -360,10 +391,8 @@ if __name__ == "__main__":
     area_df.insert(
         1,
         "Sample_Group",
-        ["_".join(i.split("_")[:-1]) for i in area_df["Sample_ID"].values]
+        ["_".join(i.split("_")[:-1]) for i in area_df["Sample_ID"].values],
     )
-    # Create output directory
-    pathlib.Path(args.o).mkdir(exist_ok=True)
     # Save the area table with proportional contributions to a CSV file
     if args.t:
         area_df.to_csv(pathlib.Path(args.o, "Parsed_Area_Table.csv"), index=False)
@@ -378,14 +407,13 @@ if __name__ == "__main__":
                 (area_df["Lipid_Class"] == c) & (area_df["Sample_Group"] == g)
             ]
             # Drop rows for species not detected in this sample
-            g_area_df = (
-                g_area_df
-                .groupby(["N_Carbon", "N_DB"])
-                .filter(lambda x: not all(x["Area"] == 0))
+            g_area_df = g_area_df.groupby(["N_Carbon", "N_DB"]).filter(
+                lambda x: not all(x["Area"] == 0)
             )
+            g_area_df.fillna({"Proportional_Contribution": 0}, inplace=True)
             # If one or no sum composition, skip to the next lipid
             is_skippable = (
-                g_area_df[["N_Carbon", "N_DB"]].drop_duplicates().shape[0] == 1
+                g_area_df[["N_Carbon", "N_DB"]].drop_duplicates().shape[0] <= 1
             )
             if is_skippable:
                 continue
@@ -395,8 +423,9 @@ if __name__ == "__main__":
                     fig, ax = plot_marginal_barplot(g_area_df, m)
                     # Decorating plot
                     x_label = (
-                        "Number of carbon atoms" if m == "N_Carbon" \
-                            else "Number of double bonds"
+                        "Number of carbon atoms"
+                        if m == "N_Carbon"
+                        else "Number of double bonds"
                     )
                     ax.set_xlabel(x_label, size=args.l)
                     ax.set_ylabel("Proportion", size=args.l)
@@ -413,10 +442,9 @@ if __name__ == "__main__":
                     plt.savefig(
                         fname=pathlib.Path(args.o, c, f"{c}_{g}_{m}_Marginal.png"),
                         dpi=300,
-                        bbox_inches="tight"
+                        bbox_inches="tight",
                     )
                     plt.close()
-
 
             # Generate FACH
             fig, ax_heatmap, ax_cbar, ax_hist_x, ax_hist_y = plot_fach(
@@ -433,51 +461,55 @@ if __name__ == "__main__":
                 n_carbon_values = g_area_df["N_Carbon"].drop_duplicates().values
                 n_db_values = g_area_df["N_DB"].drop_duplicates().values
                 avg_n_carbon = sum(
-                        (
-                            g_area_df[["N_Carbon", "Area"]].groupby("N_Carbon").sum() /
-                            g_area_df["Area"].sum()
-                        ).values.flatten() *
-                        np.sort(n_carbon_values)
+                    (
+                        g_area_df[["N_Carbon", "Area"]].groupby("N_Carbon").sum()
+                        / g_area_df["Area"].sum()
+                    ).values.flatten()
+                    * np.sort(n_carbon_values)
                 )
                 avg_n_db = sum(
-                        (
-                            g_area_df[["N_DB", "Area"]].groupby("N_DB").sum() /
-                            g_area_df["Area"].sum()
-                        )
-                        .values.flatten() *
-                        np.sort(n_db_values)
+                    (
+                        g_area_df[["N_DB", "Area"]].groupby("N_DB").sum()
+                        / g_area_df["Area"].sum()
+                    ).values.flatten()
+                    * np.sort(n_db_values)
                 )
                 if args.t:
                     average_values.append([c, g, avg_n_carbon, avg_n_db])
                 if n_carbon_values.size > 1:
                     interpolated_n_carbon = np.interp(
-                        avg_n_carbon,
-                        n_carbon_range,
-                        range(len(n_carbon_range))
+                        avg_n_carbon, n_carbon_range, range(len(n_carbon_range))
                     )
                     ax_heatmap.axvline(
-                        x= interpolated_n_carbon + 0.5,
+                        x=interpolated_n_carbon + 0.5,
                         linestyle="--",
                         linewidth=1,
                     )
                 if n_db_values.size > 1:
                     interpolated_avg_n_db = np.interp(
-                        avg_n_db,
-                        n_db_range,
-                        range(len(n_db_range))
+                        avg_n_db, n_db_range, range(len(n_db_range))
                     )
                     ax_heatmap.axhline(
                         y=interpolated_avg_n_db + 0.5,
                         linestyle="--",
                         linewidth=1,
                     )
+            if args.a:
+                ax_heatmap.text(
+                    x=0.5,
+                    y=-0.15,
+                    s=f"Avg. number of carbon atoms: {avg_n_carbon:.2f}"
+                    + "      "
+                    + f"Avg. number of DB: {avg_n_db:.2f}",
+                    wrap=True,
+                    transform=ax_heatmap.transAxes,
+                    horizontalalignment="center",
+                    verticalalignment="top",
+                    fontsize=args.l,
+                )
             # Decorating heatmap
-            ax_heatmap.set_xlabel(
-                "Number of carbon atoms", size=args.l
-            )
-            ax_heatmap.set_ylabel(
-                "Number of double bonds", size=args.l
-            )
+            ax_heatmap.set_xlabel("Number of carbon atoms", size=args.l)
+            ax_heatmap.set_ylabel("Number of double bonds", size=args.l)
             ax_heatmap.tick_params(labelsize=args.l)
             # Decorating top marginal barplot
             ax_hist_x.spines[["right", "top"]].set_visible(False)
@@ -487,7 +519,7 @@ if __name__ == "__main__":
             ax_hist_x.set_yticks(
                 ax_hist_x.get_yticks(),
                 labels=ax_hist_x.get_yticklabels(),
-                fontsize=args.l
+                fontsize=args.l,
             )
             # Decorating right marginal barplot
             ax_hist_y.spines[["right", "top"]].set_visible(False)
@@ -497,7 +529,7 @@ if __name__ == "__main__":
             ax_hist_y.set_xticks(
                 ax_hist_y.get_xticks(),
                 labels=ax_hist_y.get_xticklabels(),
-                fontsize=args.l
+                fontsize=args.l,
             )
             # Decorating colourbar
             ax_cbar.xaxis.set_ticks_position("top")
@@ -506,7 +538,7 @@ if __name__ == "__main__":
             plt.savefig(
                 fname=pathlib.Path(args.o, c, f"{c}_{g}.png"),
                 dpi=300,
-                bbox_inches="tight"
+                bbox_inches="tight",
             )
             plt.close()
 
@@ -514,7 +546,6 @@ if __name__ == "__main__":
         (
             pd.DataFrame(
                 average_values,
-                columns=["Lipid_Class", "Sample_Group", "Mean_N_Carbon", "Mean_N_DB"]
-            )
-            .to_csv(pathlib.Path(args.o, "Marginal_Means.csv"), index=False)
+                columns=["Lipid_Class", "Sample_Group", "Mean_N_Carbon", "Mean_N_DB"],
+            ).to_csv(pathlib.Path(args.o, "Marginal_Means.csv"), index=False)
         )
