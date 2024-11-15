@@ -500,7 +500,7 @@ if __name__ == "__main__":
                     y=-0.15,
                     s=f"Avg. number of carbon atoms: {avg_n_carbon:.2f}"
                     + "      "
-                    + f"Avg. number of DB: {avg_n_db:.2f}",
+                    + f"Avg. number of double bonds: {avg_n_db:.2f}",
                     wrap=True,
                     transform=ax_heatmap.transAxes,
                     horizontalalignment="center",
