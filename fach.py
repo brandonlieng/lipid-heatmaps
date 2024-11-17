@@ -399,8 +399,6 @@ if __name__ == "__main__":
         average_values = []
     # Begin looping through the lipid classes
     for c in tqdm(area_df["Lipid_Class"].drop_duplicates().values):
-        # Create an output subdirectory for the current class
-        pathlib.Path(args.o, c).mkdir(parents=True, exist_ok=True)
         for g in area_df["Sample_Group"].drop_duplicates().values:
             # Subset for rows relevant to this lipid class/sample group
             g_area_df = area_df.loc[
@@ -417,6 +415,8 @@ if __name__ == "__main__":
             )
             if is_skippable:
                 continue
+            # Create an output subdirectory for the current class
+            pathlib.Path(args.o, c).mkdir(parents=True, exist_ok=True)
             # If the -b flag is set, produce marginal bar plots
             if args.b:
                 for m in ["N_Carbon", "N_DB"]:
