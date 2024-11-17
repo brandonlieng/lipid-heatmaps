@@ -25,20 +25,26 @@ def parse_lipid_annotation(l):
 
     :return:    list containing [lipid class, n_c, n_db]
     """
-    pattern = r"^[A-z]+ [O-]*[P-]*\d+:\d+"
-    # Expected pattern not found, skip parsing this lipid annotation
-    if len(re.findall(pattern, l)) == 0:
+    pattern = r"^[0-z]+ *\(*([OP]{1}-)*[dt]*\d+:\d+\)*"
+    # Check that the annotation has a valid format, otherwise move on to next lipid
+    if not re.match(pattern, l):
         return [None, None, None]
-    annotation = re.findall(pattern, l)
-    assert len(annotation) == 1
-    annotation = annotation[0]
-    # TODO: Add support for Ceramides and Sphingolipids
-    if "P-" in annotation or "O-" in annotation:
-        lipid_class = annotation.split("-")[0] + "-"
-        composition = annotation.split("-")[1]
+    base_class = re.findall(r"^[0-z_]+", l)
+    assert len(base_class) == 1
+    base_class = base_class[0]
+    composition = re.findall(r"\d+:\d+", l)[0]
+    # Is this a sphingolipid/ceramide annotated MS-DIAL style?
+    if re.match(r";[23]{1}O", l):
+        print("TEST")
+        lipid_class = base_class + "_" + re.findall(r";[23]{1}O", l)[0]
+    # Is this a sphingolipid/ceramide annotated LIPIDMAPS style?
+    elif re.match(r"\([dt]{1}", l):
+        lipid_class = base_class + "_" + re.findall(r"\([dt]{1}", l)[0][1]
+    # Is this ether- or vinyl-linked?
+    elif "P-" in l or "O-" in l:
+        lipid_class = base_class + "_" + re.findall(r"[PO]{1}-", l)[0][0]
     else:
-        lipid_class = annotation.split(" ")[0]
-        composition = annotation.split(" ")[1]
+        lipid_class = base_class
     [n_c, n_db] = composition.split(":")
     return [lipid_class, n_c, n_db]
 
