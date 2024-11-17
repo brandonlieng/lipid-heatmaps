@@ -35,7 +35,6 @@ def parse_lipid_annotation(l):
     composition = re.findall(r"\d+:\d+", l)[0]
     # Is this a sphingolipid/ceramide annotated MS-DIAL style?
     if re.match(r";[23]{1}O", l):
-        print("TEST")
         lipid_class = base_class + "_" + re.findall(r";[23]{1}O", l)[0]
     # Is this a sphingolipid/ceramide annotated LIPIDMAPS style?
     elif re.match(r"\([dt]{1}", l):
@@ -527,6 +526,7 @@ if __name__ == "__main__":
                 labels=ax_hist_x.get_yticklabels(),
                 fontsize=args.l,
             )
+            ax_hist_x.set_ylim(bottom=0)
             # Decorating right marginal barplot
             ax_hist_y.spines[["right", "top"]].set_visible(False)
             ax_hist_y.set_xlabel("Proportion", size=args.l)
@@ -537,6 +537,7 @@ if __name__ == "__main__":
                 labels=ax_hist_y.get_xticklabels(),
                 fontsize=args.l,
             )
+            ax_hist_y.set_xlim(left=0)
             # Decorating colourbar
             ax_cbar.xaxis.set_ticks_position("top")
             ax_cbar.set_xlabel("Proportion", size=args.l)
