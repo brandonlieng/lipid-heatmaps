@@ -226,7 +226,7 @@ if __name__ == "__main__":
         dest="o",
         required=True,
         type=pathlib.Path,
-        help="path to the desired output directory",
+        help="path to the output directory",
     )
     parser.add_argument(
         "-m",
@@ -262,7 +262,7 @@ if __name__ == "__main__":
         dest="c",
         required=False,
         default="magma_r",
-        help="the desired colormapping to use for the heatmap",
+        help="the colormap to use for the heatmap",
     )
     parser.add_argument(
         "-f",
@@ -270,7 +270,7 @@ if __name__ == "__main__":
         dest="f",
         required=False,
         default="Arial",
-        help="the desired font to use when plotting",
+        help="the font to use when plotting",
     )
     parser.add_argument(
         "-l",
@@ -279,7 +279,7 @@ if __name__ == "__main__":
         required=False,
         default=10,
         type=int,
-        help="the desired font size to use for plot labels",
+        help="the font size to use for plot labels",
     )
     parser.add_argument(
         "--carbonmin",
@@ -320,7 +320,7 @@ if __name__ == "__main__":
         default="sd",
         choices=["ci", "pi", "se", "sd", "minmax"],
         type=str,
-        help="the upper N_Carbon bound to use when plotting",
+        help="the metric to use when plotting errorbars",
     )
     args = parser.parse_args()
     # Create output directory
