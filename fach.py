@@ -543,7 +543,7 @@ if __name__ == "__main__":
             ax_cbar.set_xlabel("Proportion", size=args.l)
             # Save and close before moving on
             plt.savefig(
-                fname=pathlib.Path(args.o, c, f"{c}_{g}.png"),
+                fname=pathlib.Path(args.o, c, f"{g}.png"),
                 dpi=300,
                 bbox_inches="tight",
             )
