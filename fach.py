@@ -358,9 +358,9 @@ if __name__ == "__main__":
             f"{unparsable.size} lipid annotations could not be parsed and have been "
             "removed"
         )
-    with open(pathlib.Path(args.o, "Unparsable_Lipids.txt"), "w") as f:
-        for m in unparsable:
-            f.write(f"{m}\n")
+        with open(pathlib.Path(args.o, "Unparsable_Lipids.txt"), "w") as f:
+            for m in unparsable:
+                f.write(f"{m}\n")
     area_df = area_df.loc[~pd.isnull(area_df["Lipid_Class"])]
     area_df = area_df.drop(columns="Lipid_Annotation")
     # Fix dtypes
