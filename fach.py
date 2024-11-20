@@ -64,7 +64,7 @@ def parse_lipid_annotation(l):
     return [lipid_class, n_c, n_db]
 
 
-def plot_fach(area_df, heatmap_cmap):
+def plot_fach(area_df, heatmap_cmap, cmin=None, cmax=None, dbmin=None, dbmax=None):
     """
     Plot a fatty acid composition heatmap.
 
@@ -75,16 +75,13 @@ def plot_fach(area_df, heatmap_cmap):
 
     :return:                a list holding a Matplotlib figure and axes
     """
-    # Compute mean proportional contribution values and pivot for sns.heatmap
-    # tmp_df = (
-    #     area_df
-    #     .groupby(["N_Carbon", "N_DB"], as_index=False)
-    #     ["Proportional_Contribution"]
-    #     .mean()
-    # )
     pad_df = []
-    for n_c in range(area_df["N_Carbon"].min(), area_df["N_Carbon"].max() + 1):
-        for n_db in range(area_df["N_DB"].min(), area_df["N_DB"].max() + 1):
+    lower_c_bound = area_df["N_Carbon"].min() if cmin is None else cmin
+    upper_c_bound = area_df["N_Carbon"].max() if cmax is None else cmax
+    lower_db_bound = area_df["N_DB"].min() if dbmin is None else dbmin
+    upper_db_bound = area_df["N_DB"].max() if dbmax is None else dbmax
+    for n_c in range(lower_c_bound, upper_c_bound + 1):
+        for n_db in range(lower_db_bound, upper_db_bound + 1):
             if (
                 n_c not in area_df["N_Carbon"].values
                 or n_db not in area_df["N_DB"].values
@@ -303,36 +300,11 @@ if __name__ == "__main__":
         help="the font size to use for plot labels",
     )
     parser.add_argument(
-        "--carbonmin",
-        dest="cmin",
-        required=False,
-        default=None,
-        type=int,
-        help="the lower N_Carbon bound to use when plotting",
-    )
-    parser.add_argument(
-        "--carbonmax",
-        dest="cmax",
-        required=False,
-        default=None,
-        type=int,
-        help="the upper N_Carbon bound to use when plotting",
-    )
-    parser.add_argument(
-        "--dbmin",
-        dest="dbmin",
-        required=False,
-        default=None,
-        type=int,
-        help="the lower N_DB bound to use when plotting",
-    )
-    parser.add_argument(
-        "--dbmax",
-        dest="dbmax",
-        required=False,
-        default=None,
-        type=int,
-        help="the upper N_DB bound to use when plotting",
+        "-g",
+        "--groupaxes",
+        dest="groupaxes",
+        action="store_true",
+        help="if set, sets the axes ranges for all FACHs within a sample group to the same values",
     )
     parser.add_argument(
         "--ebar",
@@ -422,6 +394,16 @@ if __name__ == "__main__":
         average_values = []
     # Begin looping through the lipid classes
     for c in tqdm(area_df["Lipid_Class"].drop_duplicates().values):
+        [cmin, cmax, dbmin, dbmax] = (
+            [
+                area_df.loc[area_df["Lipid_Class"] == c, "N_Carbon"].min(),
+                area_df.loc[area_df["Lipid_Class"] == c, "N_Carbon"].max(),
+                area_df.loc[area_df["Lipid_Class"] == c, "N_DB"].min(),
+                area_df.loc[area_df["Lipid_Class"] == c, "N_DB"].max(),
+            ]
+            if args.groupaxes
+            else [None] * 4
+        )
         for g in area_df["Sample_Group"].drop_duplicates().values:
             # Subset for rows relevant to this lipid class/sample group
             g_area_df = area_df.loc[
@@ -471,7 +453,7 @@ if __name__ == "__main__":
 
             # Generate FACH
             fig, ax_heatmap, ax_cbar, ax_hist_x, ax_hist_y = plot_fach(
-                g_area_df, args.c
+                g_area_df, args.c, cmin, cmax, dbmin, dbmax
             )
             # Determine means and mark them on the heatmap if the flag is set
             if args.m:
