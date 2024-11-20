@@ -32,18 +32,34 @@ def parse_lipid_annotation(l):
     base_class = re.findall(r"^[0-z_]+", l)
     assert len(base_class) == 1
     base_class = base_class[0]
-    composition = re.findall(r"\d+:\d+", l)[0]
-    # Is this a sphingolipid/ceramide annotated MS-DIAL style?
-    if re.match(r";[23]{1}O", l):
-        lipid_class = base_class + "_" + re.findall(r";[23]{1}O", l)[0]
-    # Is this a sphingolipid/ceramide annotated LIPIDMAPS style?
-    elif re.match(r"\([dt]{1}", l):
-        lipid_class = base_class + "_" + re.findall(r"\([dt]{1}", l)[0][1]
-    # Is this ether- or vinyl-linked?
+
+    if re.search(r"\([dt]{1}\d+:\d+\/\d+:\d+(?:\(OH\))?\)", l):
+        # Is this a phytoceramide?
+        if re.search(r"\(t\d+:0", l):
+            lipid_class = base_class + "_t_18_0"
+        # Is this a dihydroceramide?
+        elif re.search(r"\(d\d+:0", l):
+            lipid_class = base_class + "_d_18_0"
+        # Is this a ceramide with more than one double bond on the backbone?
+        elif re.search(r"\(d\d+:\d+", l):
+            lipid_class = (
+                base_class + "_d_" + re.findall(r"d\d+:\d+", l)[0][1:].replace(":", "_")
+            )
+        # Is this a hydroxy-ceramide?
+        if re.search(r"\(OH\)", l):
+            lipid_class += "_OH"
+        composition = re.findall(r"\/\d+:\d+(?:\(OH\))?\)", l)[0].replace("(OH)", "")[
+            1:-1
+        ]
+    # Is this an ether- or vinyl-linked glycerophospholipid?
     elif "P-" in l or "O-" in l:
         lipid_class = base_class + "_" + re.findall(r"[PO]{1}-", l)[0][0]
+        composition = re.findall(r"\d+:\d+", l)[0]
     else:
         lipid_class = base_class
+        composition = re.findall(r"\d+:\d+", l)[0]
+    if re.search(r"\(sn[12]{1}\)", l):
+        lipid_class += "_" + re.findall(r"\(sn[12]{1}\)", l)[0][1:-1]
     [n_c, n_db] = composition.split(":")
     return [lipid_class, n_c, n_db]
 
