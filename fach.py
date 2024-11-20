@@ -367,8 +367,8 @@ if __name__ == "__main__":
     if pd.isnull(area_df["Lipid_Class"]).sum() > 0:
         unparsable = (
             area_df.loc[pd.isnull(area_df["Lipid_Class"]), "Lipid_Annotation"]
-            .drop_duplicates().
-            values
+            .drop_duplicates()
+            .values
         )
         print(
             f"{unparsable.size} lipid annotations could not be parsed and have been "
@@ -398,7 +398,9 @@ if __name__ == "__main__":
     ).sum()
     # Get the total area detected in each sample per lipid class
     total_sample_class_areas = (
-        area_df.groupby(["Sample_ID", "Lipid_Class"], observed=True, as_index=False)["Area"]
+        area_df.groupby(["Sample_ID", "Lipid_Class"], observed=True, as_index=False)[
+            "Area"
+        ]
         .sum()
         .rename(columns={"Area": "Sample_Class_Total_Area"})
     )
