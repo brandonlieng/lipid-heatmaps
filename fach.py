@@ -557,6 +557,16 @@ if __name__ == "__main__":
             # Decorating colourbar
             ax_cbar.xaxis.set_ticks_position("top")
             ax_cbar.set_xlabel("Proportion", size=args.l)
+            ax_cbar.text(
+                x=0.5,
+                y=3,
+                s=g,
+                transform=ax_cbar.transAxes,
+                horizontalalignment="center",
+                verticalalignment="bottom",
+                fontsize=args.l + 2,
+                fontweight="bold",
+            )
             # Save and close before moving on
             plt.savefig(
                 fname=pathlib.Path(args.o, c, f"{g}.png"),
