@@ -64,7 +64,16 @@ def parse_lipid_annotation(l):
     return [lipid_class, n_c, n_db]
 
 
-def plot_fach(area_df, heatmap_cmap, cmin=None, cmax=None, dbmin=None, dbmax=None):
+def plot_fach(
+    area_df,
+    heatmap_cmap,
+    cmin=None,
+    cmax=None,
+    dbmin=None,
+    dbmax=None,
+    propmin=None,
+    propmax=None,
+):
     """
     Plot a fatty acid composition heatmap.
 
@@ -139,6 +148,8 @@ def plot_fach(area_df, heatmap_cmap, cmin=None, cmax=None, dbmin=None, dbmax=Non
         data=heatmap_df,
         ax=ax_heatmap,
         cbar_ax=ax_cbar,
+        vmin=propmin,
+        vmax=propmax,
         cmap=heatmap_cmap,
         cbar_kws={"orientation": "horizontal", "label": "Proportion"},
         mask=(heatmap_df == 0),
@@ -394,15 +405,21 @@ if __name__ == "__main__":
         average_values = []
     # Begin looping through the lipid classes
     for c in tqdm(area_df["Lipid_Class"].drop_duplicates().values):
-        [cmin, cmax, dbmin, dbmax] = (
+        [cmin, cmax, dbmin, dbmax, propmin, propmax] = (
             [
                 area_df.loc[area_df["Lipid_Class"] == c, "N_Carbon"].min(),
                 area_df.loc[area_df["Lipid_Class"] == c, "N_Carbon"].max(),
                 area_df.loc[area_df["Lipid_Class"] == c, "N_DB"].min(),
                 area_df.loc[area_df["Lipid_Class"] == c, "N_DB"].max(),
+                area_df.loc[
+                    area_df["Lipid_Class"] == c, "Proportional_Contribution"
+                ].min(),
+                area_df.loc[
+                    area_df["Lipid_Class"] == c, "Proportional_Contribution"
+                ].max(),
             ]
             if args.groupaxes
-            else [None] * 4
+            else [None] * 6
         )
         for g in area_df["Sample_Group"].drop_duplicates().values:
             # Subset for rows relevant to this lipid class/sample group
@@ -453,15 +470,22 @@ if __name__ == "__main__":
 
             # Generate FACH
             fig, ax_heatmap, ax_cbar, ax_hist_x, ax_hist_y = plot_fach(
-                g_area_df, args.c, cmin, cmax, dbmin, dbmax
+                g_area_df, args.c, cmin, cmax, dbmin, dbmax, propmin, propmax
             )
             # Determine means and mark them on the heatmap if the flag is set
             if args.m:
-                n_carbon_range = np.arange(
-                    g_area_df["N_Carbon"].min(), g_area_df["N_Carbon"].max() + 1, 1
-                )
-                n_db_range = np.arange(
-                    g_area_df["N_DB"].min(), g_area_df["N_DB"].max() + 1, 1
+                if args.groupaxes:
+                    n_carbon_range = np.arange(cmin, cmax + 1, 1)
+                    n_db_range = np.arange(dbmin, dbmax + 1, 1)
+                else:
+                    n_carbon_range = np.arange(
+                        g_area_df["N_Carbon"].min(), g_area_df["N_Carbon"].max() + 1, 1
+                    )
+                    n_db_range = np.arange(
+                        g_area_df["N_DB"].min(), g_area_df["N_DB"].max() + 1, 1
+                    )
+                n_carbon_values = np.sort(g_area_df["N_Carbon"].drop_duplicates().values)
+                n_db_values = np.sort(g_area_df["N_DB"].drop_duplicates().values)
                 )
                 n_carbon_values = g_area_df["N_Carbon"].drop_duplicates().values
                 n_db_values = g_area_df["N_DB"].drop_duplicates().values
