@@ -486,25 +486,56 @@ if __name__ == "__main__":
                     )
                 n_carbon_values = np.sort(g_area_df["N_Carbon"].drop_duplicates().values)
                 n_db_values = np.sort(g_area_df["N_DB"].drop_duplicates().values)
+                n_carbon_weights = (
+                    g_area_df[["N_Carbon", "Area"]].groupby("N_Carbon").sum()
                 )
-                n_carbon_values = g_area_df["N_Carbon"].drop_duplicates().values
-                n_db_values = g_area_df["N_DB"].drop_duplicates().values
+                n_db_weights = g_area_df[["N_DB", "Area"]].groupby("N_DB").sum()
                 avg_n_carbon = sum(
-                    (
-                        g_area_df[["N_Carbon", "Area"]].groupby("N_Carbon").sum()
-                        / g_area_df["Area"].sum()
-                    ).values.flatten()
+                    (n_carbon_weights / g_area_df["Area"].sum()).values.flatten()
                     * np.sort(n_carbon_values)
                 )
                 avg_n_db = sum(
-                    (
-                        g_area_df[["N_DB", "Area"]].groupby("N_DB").sum()
-                        / g_area_df["Area"].sum()
-                    ).values.flatten()
-                    * np.sort(n_db_values)
+                    (n_db_weights / g_area_df["Area"].sum()).values.flatten()
+                    * n_db_values
                 )
+                n_carbon_weights_non_zero = np.sum(
+                    (
+                        g_area_df[["N_Carbon", "Area"]].groupby("N_Carbon").sum() != 0
+                    ).values
+                )
+                n_db_weights_non_zero = np.sum(
+                    (g_area_df[["N_DB", "Area"]].groupby("N_DB").sum() != 0).values
+                )
+                if n_carbon_weights_non_zero > 1:
+                    sd_n_carbon = (
+                        np.sum(
+                            n_carbon_weights.values.flatten()
+                            * (n_carbon_values - avg_n_carbon) ** 2
+                        )
+                        / (
+                            ((n_carbon_weights_non_zero - 1) / n_carbon_weights_non_zero)
+                            * np.sum(n_carbon_weights.values)
+                        )
+                    ) ** (1 / 2)
+                else:
+                    n_carbon_weights_non_zero = 0
+                if n_db_weights_non_zero > 1:
+                    sd_n_db = (
+                        np.sum(
+                            n_db_weights.values.flatten()
+                            * (n_db_values - avg_n_db) ** 2
+                        )
+                        / (
+                            ((n_db_weights_non_zero - 1) / n_db_weights_non_zero)
+                            * np.sum(n_db_weights.values)
+                        )
+                    ) ** (1 / 2)
+                else:
+                    n_db_weights_non_zero = 0
                 if args.t:
-                    average_values.append([c, g, avg_n_carbon, avg_n_db])
+                    average_values.append(
+                        [c, g, avg_n_carbon, avg_n_db, sd_n_carbon, sd_n_db]
+                    )
                 if n_carbon_values.size > 1:
                     interpolated_n_carbon = np.interp(
                         avg_n_carbon, n_carbon_range, range(len(n_carbon_range))
@@ -587,6 +618,13 @@ if __name__ == "__main__":
         (
             pd.DataFrame(
                 average_values,
-                columns=["Lipid_Class", "Sample_Group", "Mean_N_Carbon", "Mean_N_DB"],
+                columns=[
+                    "Lipid_Class",
+                    "Sample_Group",
+                    "Mean_N_Carbon",
+                    "Mean_N_DB",
+                    "SD_N_Carbon",
+                    "SD_N_DB",
+                ],
             ).to_csv(pathlib.Path(args.o, "Marginal_Means.csv"), index=False)
         )
