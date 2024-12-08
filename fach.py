@@ -19,11 +19,12 @@ from tqdm.auto import tqdm
 def parse_lipid_annotation(l):
     """
     Parse a lipid annotation into its corresponding lipid class, number of
-    carbon atoms, and number of double bonds.
+    carbon atoms, and number of double bonds. Currently supports LIPIDMAPS shorthand-
+    style annotations for ceramides and glycerophospholipids (GPGs).
 
-    :param l:   lipid annotation to be parsed
+    :param l:   lipid annotation to be parsed; string
 
-    :return:    list containing [lipid class, n_c, n_db]
+    :return:    [lipid class, n_c, n_db]; list
     """
     pattern = r"^[0-z]+ *\(*([OP]{1}-)*[dt]*\d+:\d+\)*"
     # Check that the annotation has a valid format, otherwise move on to next lipid
@@ -32,7 +33,7 @@ def parse_lipid_annotation(l):
     base_class = re.findall(r"^[0-z_]+", l)
     assert len(base_class) == 1
     base_class = base_class[0]
-
+    # Is this a ceramide?
     if re.search(r"\([dt]{1}\d+:\d+\/\d+:\d+(?:\(OH\))?\)", l):
         # Is this a phytoceramide?
         if re.search(r"\(t\d+:0", l):
@@ -55,9 +56,11 @@ def parse_lipid_annotation(l):
     elif "P-" in l or "O-" in l:
         lipid_class = base_class + "_" + re.findall(r"[PO]{1}-", l)[0][0]
         composition = re.findall(r"\d+:\d+", l)[0]
+    # This is probably a glycerophospholipid
     else:
         lipid_class = base_class
         composition = re.findall(r"\d+:\d+", l)[0]
+    # Is this a lyso-GPG?
     if re.search(r"\(sn[12]{1}\)", l):
         lipid_class += "_" + re.findall(r"\(sn[12]{1}\)", l)[0][1:-1]
     [n_c, n_db] = composition.split(":")
@@ -77,12 +80,19 @@ def plot_fach(
     """
     Plot a fatty acid composition heatmap.
 
-    :param area_df:         a pandas DataFrame holding N_Carbon/N_DB data for
-                            features within a lipid class and sample group
-    :param heatmap_cmap:
-    :param bounds:
+    :param area_df:         N_Carbon/N_DB data for features within a lipid class and
+                            sample group; pd.DataFrame
 
-    :return:                a list holding a Matplotlib figure and axes
+    :param heatmap_cmap:    desired colormap to use for the heatmap; string
+
+    :param cmin:            lower N_Carbon bound; int
+    :param cmax:            upper N_Carbon bound; int
+    :param dbmin:           lower N_DB bound; int
+    :param dbmax:           upper N_DB bound; int
+    :param propmin:         lower Proportional_Contribution bound; float
+    :param propmax:         upper Proportional_Contribution bound; float
+
+    :return:                FACH plot; plt.Figure
     """
     pad_df = []
     lower_c_bound = area_df["N_Carbon"].min() if cmin is None else cmin
@@ -269,7 +279,7 @@ if __name__ == "__main__":
         "--tables",
         dest="t",
         action="store_true",
-        help="if set, saves the parsed area table as a CSV file",
+        help="if set, saves the parsed area and marginal means tables as CSV files",
     )
     parser.add_argument(
         "-b",
@@ -290,7 +300,7 @@ if __name__ == "__main__":
         "--cmap",
         dest="c",
         required=False,
-        default="magma_r",
+        default="mako_r",
         help="the colormap to use for the heatmap",
     )
     parser.add_argument(
@@ -315,9 +325,10 @@ if __name__ == "__main__":
         "--groupaxes",
         dest="groupaxes",
         action="store_true",
-        help="if set, sets the axes ranges for all FACHs within a sample group to the same values",
+        help="if set, uses the same axes range for all FACHs within a sample group",
     )
     parser.add_argument(
+        "-e",
         "--ebar",
         dest="ebar",
         required=False,
@@ -421,6 +432,7 @@ if __name__ == "__main__":
             if args.groupaxes
             else [None] * 6
         )
+        # Begin looping through the sample groups
         for g in area_df["Sample_Group"].drop_duplicates().values:
             # Subset for rows relevant to this lipid class/sample group
             g_area_df = area_df.loc[
@@ -554,6 +566,7 @@ if __name__ == "__main__":
                         linestyle="--",
                         linewidth=1,
                     )
+            # Annotate the FACH with weighted marginal values if the -a flag is set
             if args.a:
                 ax_heatmap.text(
                     x=0.5,
@@ -613,7 +626,7 @@ if __name__ == "__main__":
                 bbox_inches="tight",
             )
             plt.close()
-
+    # Save marginal means as a CSV if the -t flag is set
     if args.t:
         (
             pd.DataFrame(
