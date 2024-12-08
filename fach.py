@@ -246,6 +246,25 @@ def plot_marginal_barplot(area_df, margin):
     return (fig, ax)
 
 
+def weighted_standard_deviation(x, x_bar, w):
+    """
+    Compute a weighted standard deviation using a vector of values, a weighted mean
+    value, and a vector of weights. Indices of x and w are assumed to align.
+
+    :param x:           a vector of values; array
+    :param x_bar:       a weighted mean value; float
+    :param w:           a vector of weights corresponding to the values; array
+
+    :return:    the weighted standard deviation; float
+    """
+    if np.sum(w != 0) > 1:
+        return (
+            np.sum(w * (x - x_bar) ** 2)
+            / (((np.sum(w != 0) - 1) / np.sum(w != 0)) * np.sum(w))
+        ) ** (1 / 2)
+    return 0.0
+
+
 if __name__ == "__main__":
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
@@ -484,7 +503,33 @@ if __name__ == "__main__":
             fig, ax_heatmap, ax_cbar, ax_hist_x, ax_hist_y = plot_fach(
                 g_area_df, args.c, cmin, cmax, dbmin, dbmax, propmin, propmax
             )
-            # Determine means and mark them on the heatmap if the flag is set
+            # Determine the weighted marginal mean and standard deviation values
+            n_carbon_values = np.sort(g_area_df["N_Carbon"].drop_duplicates().values)
+            n_db_values = np.sort(g_area_df["N_DB"].drop_duplicates().values)
+            n_carbon_weights = (
+                g_area_df[["N_Carbon", "Area"]]
+                .groupby("N_Carbon")
+                .sum()
+                .squeeze()
+                .values
+            )
+            n_db_weights = (
+                g_area_df[["N_DB", "Area"]].groupby("N_DB").sum().squeeze().values
+            )
+            avg_n_carbon = sum(
+                n_carbon_weights / g_area_df["Area"].sum() * n_carbon_values
+            )
+            avg_n_db = sum(n_db_weights / g_area_df["Area"].sum() * n_db_values)
+            sd_n_carbon = weighted_standard_deviation(
+                n_carbon_values, avg_n_carbon, n_carbon_weights
+            )
+            sd_n_db = weighted_standard_deviation(n_db_values, avg_n_db, n_db_weights)
+            # Write the marginal means to a table if the -t flag is set
+            if args.t:
+                average_values.append(
+                    [c, g, avg_n_carbon, avg_n_db, sd_n_carbon, sd_n_db]
+                )
+            # Mark the marginal means on the FACH as dotten lines if the -m flag is set
             if args.m:
                 if args.groupaxes:
                     n_carbon_range = np.arange(cmin, cmax + 1, 1)
@@ -495,58 +540,6 @@ if __name__ == "__main__":
                     )
                     n_db_range = np.arange(
                         g_area_df["N_DB"].min(), g_area_df["N_DB"].max() + 1, 1
-                    )
-                n_carbon_values = np.sort(g_area_df["N_Carbon"].drop_duplicates().values)
-                n_db_values = np.sort(g_area_df["N_DB"].drop_duplicates().values)
-                n_carbon_weights = (
-                    g_area_df[["N_Carbon", "Area"]].groupby("N_Carbon").sum()
-                )
-                n_db_weights = g_area_df[["N_DB", "Area"]].groupby("N_DB").sum()
-                avg_n_carbon = sum(
-                    (n_carbon_weights / g_area_df["Area"].sum()).values.flatten()
-                    * np.sort(n_carbon_values)
-                )
-                avg_n_db = sum(
-                    (n_db_weights / g_area_df["Area"].sum()).values.flatten()
-                    * n_db_values
-                )
-                n_carbon_weights_non_zero = np.sum(
-                    (
-                        g_area_df[["N_Carbon", "Area"]].groupby("N_Carbon").sum() != 0
-                    ).values
-                )
-                n_db_weights_non_zero = np.sum(
-                    (g_area_df[["N_DB", "Area"]].groupby("N_DB").sum() != 0).values
-                )
-                if n_carbon_weights_non_zero > 1:
-                    sd_n_carbon = (
-                        np.sum(
-                            n_carbon_weights.values.flatten()
-                            * (n_carbon_values - avg_n_carbon) ** 2
-                        )
-                        / (
-                            ((n_carbon_weights_non_zero - 1) / n_carbon_weights_non_zero)
-                            * np.sum(n_carbon_weights.values)
-                        )
-                    ) ** (1 / 2)
-                else:
-                    n_carbon_weights_non_zero = 0
-                if n_db_weights_non_zero > 1:
-                    sd_n_db = (
-                        np.sum(
-                            n_db_weights.values.flatten()
-                            * (n_db_values - avg_n_db) ** 2
-                        )
-                        / (
-                            ((n_db_weights_non_zero - 1) / n_db_weights_non_zero)
-                            * np.sum(n_db_weights.values)
-                        )
-                    ) ** (1 / 2)
-                else:
-                    n_db_weights_non_zero = 0
-                if args.t:
-                    average_values.append(
-                        [c, g, avg_n_carbon, avg_n_db, sd_n_carbon, sd_n_db]
                     )
                 if n_carbon_values.size > 1:
                     interpolated_n_carbon = np.interp(
