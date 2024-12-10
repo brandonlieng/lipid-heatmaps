@@ -106,6 +106,9 @@ def plot_fach(
         .mean()
         .pivot(columns="N_Carbon", index="N_DB", values="Proportional_Contribution")
     )
+    heatmap_df = heatmap_df.reindex(
+        index=heatmap_df.index[::-1]
+    )  # Make N_DB values decrease by row
     heatmap_df.fillna(0, inplace=True)
     # Initalize a grid of subplots
     fig = plt.figure(figsize=(8, 8))
@@ -172,6 +175,7 @@ def plot_fach(
             if args.ebar in ["ci", "pi", "se", "sd"]
             else (lambda x: (x.min(), x.max()))
         ),
+        order=marginal_db_df["N_DB"].sort_values(ascending=False).values,
         ax=ax_hist_y,
         width=0.8,
     )
@@ -208,6 +212,7 @@ def plot_marginal_barplot(area_df, margin):
             if args.ebar in ["ci", "pi", "se", "sd"]
             else (lambda x: (x.min(), x.max()))
         ),
+        width=0.8,
     )
     return (fig, ax)
 
@@ -478,35 +483,6 @@ if __name__ == "__main__":
                 continue
             # Create an output subdirectory for the current lipid class
             pathlib.Path(args.o, c).mkdir(parents=True, exist_ok=True)
-            # If the -b flag is set, produce marginal bar plots
-            if args.b:
-                for m in ["N_Carbon", "N_DB"]:
-                    fig, ax = plot_marginal_barplot(g_area_df, m)
-                    # Decorating plot
-                    x_label = (
-                        "Number of carbon atoms"
-                        if m == "N_Carbon"
-                        else "Number of double bonds"
-                    )
-                    ax.set_xlabel(x_label, size=args.l)
-                    ax.set_ylabel("Proportion", size=args.l)
-                    ax.set_title(f"{c} {g}", size=args.l)
-                    ax.tick_params(axis="both", labelsize=args.l)
-                    # Hide every other tick label if more than 15 values
-                    if g_area_df[m].max() - g_area_df[m].min() >= 15:
-                        if g_area_df[m].min() % 2 == 0:
-                            for l in ax.xaxis.get_ticklabels()[1::2]:
-                                l.set_visible(False)
-                        else:
-                            for l in ax.xaxis.get_ticklabels()[::2]:
-                                l.set_visible(False)
-                    plt.savefig(
-                        fname=pathlib.Path(args.o, c, f"{c}_{g}_{m}_Marginal.png"),
-                        dpi=300,
-                        bbox_inches="tight",
-                    )
-                    plt.close()
-
             # Generate FACH
             fig, ax_heatmap, ax_cbar, ax_hist_x, ax_hist_y = plot_fach(
                 g_area_df, args.c, cmin, cmax, dbmin, dbmax, propmin, propmax
@@ -567,7 +543,7 @@ if __name__ == "__main__":
                         avg_n_db, n_db_range, range(len(n_db_range))
                     )
                     ax_heatmap.axhline(
-                        y=interpolated_avg_n_db + 0.5,
+                        y=n_db_range[-1] - interpolated_avg_n_db + 0.5,
                         linestyle="--",
                         linewidth=1,
                     )
