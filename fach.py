@@ -92,7 +92,8 @@ def plot_fach(
     :param propmin:         lower Proportional_Contribution bound; float
     :param propmax:         upper Proportional_Contribution bound; float
 
-    :return:                FACH plot; plt.Figure
+    :return:                tuple holding (plt.Figure and axes with heatmap, cbar, and
+                            marginal barplots)
     """
     heatmap_df = (
         area_df.loc[
@@ -220,7 +221,7 @@ def weighted_standard_deviation(x, x_bar, w):
     :param x_bar:       a weighted mean value; float
     :param w:           a vector of weights corresponding to the values; array
 
-    :return:    the weighted standard deviation; float
+    :return:            weighted standard deviation value; float
     """
     if np.sum(w != 0) > 1:
         return (
@@ -475,7 +476,7 @@ if __name__ == "__main__":
                 <= 1
             ):
                 continue
-            # Create an output subdirectory for the current class
+            # Create an output subdirectory for the current lipid class
             pathlib.Path(args.o, c).mkdir(parents=True, exist_ok=True)
             # If the -b flag is set, produce marginal bar plots
             if args.b:
@@ -553,11 +554,11 @@ if __name__ == "__main__":
                         g_area_df["N_DB"].min(), g_area_df["N_DB"].max() + 1, 1
                     )
                 if n_carbon_values.size > 1:
-                    interpolated_n_carbon = np.interp(
+                    interpolated_avg_n_carbon = np.interp(
                         avg_n_carbon, n_carbon_range, range(len(n_carbon_range))
                     )
                     ax_heatmap.axvline(
-                        x=interpolated_n_carbon + 0.5,
+                        x=interpolated_avg_n_carbon + 0.5,
                         linestyle="--",
                         linewidth=1,
                     )
