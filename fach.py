@@ -94,39 +94,14 @@ def plot_fach(
 
     :return:                FACH plot; plt.Figure
     """
-    pad_df = []
-    lower_c_bound = area_df["N_Carbon"].min() if cmin is None else cmin
-    upper_c_bound = area_df["N_Carbon"].max() if cmax is None else cmax
-    lower_db_bound = area_df["N_DB"].min() if dbmin is None else dbmin
-    upper_db_bound = area_df["N_DB"].max() if dbmax is None else dbmax
-    for n_c in range(lower_c_bound, upper_c_bound + 1):
-        for n_db in range(lower_db_bound, upper_db_bound + 1):
-            if (
-                n_c not in area_df["N_Carbon"].values
-                or n_db not in area_df["N_DB"].values
-            ):
-                for s in area_df["Sample_ID"].drop_duplicates():
-                    pad_df.append([s, n_c, n_db, 0])
-    pad_df = pd.DataFrame(
-        pad_df, columns=["Sample_ID", "N_Carbon", "N_DB", "Proportional_Contribution"]
-    )
-    if not pad_df.empty:
-        pad_df = pd.concat(
-            [
-                pad_df,
-                (
-                    area_df.groupby(["Sample_ID", "N_Carbon", "N_DB"], as_index=False)[
-                        "Proportional_Contribution"
-                    ].mean()
-                ),
-            ]
-        )
-    else:
-        pad_df = area_df
     heatmap_df = (
-        pad_df.groupby(["N_Carbon", "N_DB"], as_index=False)[
-            "Proportional_Contribution"
+        area_df.loc[
+            (area_df["N_Carbon"] >= cmin)
+            & (area_df["N_Carbon"] <= cmax)
+            & (area_df["N_DB"] >= dbmin)
+            & (area_df["N_DB"] <= dbmax)
         ]
+        .groupby(["N_Carbon", "N_DB"], as_index=False)["Proportional_Contribution"]
         .mean()
         .pivot(columns="N_Carbon", index="N_DB", values="Proportional_Contribution")
     )
@@ -164,12 +139,11 @@ def plot_fach(
         cbar_kws={"orientation": "horizontal", "label": "Proportion"},
         mask=(heatmap_df == 0),
     )
+    marginal_c_df = area_df.groupby(["N_Carbon", "Sample_ID"], as_index=False)[
+        "Proportional_Contribution"
+    ].sum()
     sns.barplot(
-        data=(
-            pad_df.groupby(["N_Carbon", "Sample_ID"], as_index=False)[
-                "Proportional_Contribution"
-            ].sum()
-        ),
+        data=marginal_c_df,
         x="N_Carbon",
         y="Proportional_Contribution",
         fill=False,
@@ -182,12 +156,11 @@ def plot_fach(
         ax=ax_hist_x,
         width=0.8,
     )
+    marginal_db_df = area_df.groupby(["N_DB", "Sample_ID"], as_index=False)[
+        "Proportional_Contribution"
+    ].sum()
     sns.barplot(
-        data=(
-            pad_df.groupby(["N_DB", "Sample_ID"], as_index=False)[
-                "Proportional_Contribution"
-            ].sum()
-        ),
+        data=marginal_db_df,
         y="N_DB",
         x="Proportional_Contribution",
         orient="h",
@@ -219,20 +192,12 @@ def plot_marginal_barplot(area_df, margin):
     assert margin in ["N_Carbon", "N_DB"]
     # Sum proportions if they share the same N_Carbon or N_DB, depending on the
     # marginal varable to be plotted
-    tmp_df = area_df.groupby([margin, "Sample_ID"], as_index=False)[
+    margin_df = area_df.groupby([margin, "Sample_ID"], as_index=False)[
         "Proportional_Contribution"
     ].sum()
-    pad_df = []
-    for i in range(tmp_df[m].min(), tmp_df[m].max() + 1):
-        if i not in tmp_df[m].values:
-            for s in tmp_df["Sample_ID"].drop_duplicates():
-                pad_df.append([i, s, 0])
-    pad_df = pd.DataFrame(pad_df, columns=[m, "Sample_ID", "Proportional_Contribution"])
-    if not pad_df.empty:
-        tmp_df = pd.concat([tmp_df, pad_df])
     fig, ax = plt.subplots(figsize=(8, 4))
     p = sns.barplot(
-        data=tmp_df,
+        data=margin_df,
         x=margin,
         y="Proportional_Contribution",
         fill=False,
@@ -370,13 +335,18 @@ if __name__ == "__main__":
         .reset_index()
         .rename(columns={"variable": "Sample_ID", "value": "Area"})
     )
-    # Parse lipid annotations to [Lipid_Class, N_Carbon, N_DB] and drop lipid features
-    # that cannot be parsed
-    anno_df = pd.DataFrame.from_records(
-        area_df["Lipid_Annotation"].apply(parse_lipid_annotation),
-        columns=["Lipid_Class", "N_Carbon", "N_DB"],
+    # Parse lipid annotations to [Lipid_Class, N_Carbon, N_DB] and add these as columns
+    area_df = pd.concat(
+        [
+            area_df,
+            pd.DataFrame.from_records(
+                area_df["Lipid_Annotation"].apply(parse_lipid_annotation),
+                columns=["Lipid_Class", "N_Carbon", "N_DB"],
+            ),
+        ],
+        axis=1,
     )
-    area_df = pd.concat([area_df, anno_df], axis=1)
+    # Drop features with lipid annotations that were unparsable
     if pd.isnull(area_df["Lipid_Class"]).sum() > 0:
         unparsable = (
             area_df.loc[pd.isnull(area_df["Lipid_Class"]), "Lipid_Annotation"]
@@ -391,10 +361,10 @@ if __name__ == "__main__":
             for m in unparsable:
                 f.write(f"{m}\n")
     area_df = area_df.loc[~pd.isnull(area_df["Lipid_Class"])]
-    area_df = area_df.drop(columns="Lipid_Annotation")
-    # Fix dtypes
+    # Explicitly set dtypes
     area_df = area_df.astype(
         {
+            "Lipid_Annotation": "string",
             "Sample_ID": "string",
             "Lipid_Class": "category",
             "N_Carbon": "int32",
@@ -409,8 +379,8 @@ if __name__ == "__main__":
         sort=False,
         observed=True,
     ).sum()
-    # Get the total area detected in each sample per lipid class
-    total_sample_class_areas = (
+    # Get the total area detected in each sample per lipid class and add as a column
+    area_df = area_df.merge(
         area_df.groupby(["Sample_ID", "Lipid_Class"], observed=True, as_index=False)[
             "Area"
         ]
@@ -419,7 +389,6 @@ if __name__ == "__main__":
     )
     # Calculate the proportion of signal (area) that each lipid species contributes to
     # the total area of it's respective lipid class (calculated per-sample)
-    area_df = area_df.merge(total_sample_class_areas)
     area_df["Proportional_Contribution"] = (
         area_df["Area"] / area_df["Sample_Class_Total_Area"]
     )
@@ -435,38 +404,76 @@ if __name__ == "__main__":
         average_values = []
     # Begin looping through the lipid classes
     for c in tqdm(area_df["Lipid_Class"].drop_duplicates().values):
-        [cmin, cmax, dbmin, dbmax, propmin, propmax] = (
-            [
-                area_df.loc[area_df["Lipid_Class"] == c, "N_Carbon"].min(),
-                area_df.loc[area_df["Lipid_Class"] == c, "N_Carbon"].max(),
-                area_df.loc[area_df["Lipid_Class"] == c, "N_DB"].min(),
-                area_df.loc[area_df["Lipid_Class"] == c, "N_DB"].max(),
-                area_df.loc[
-                    area_df["Lipid_Class"] == c, "Proportional_Contribution"
-                ].min(),
-                area_df.loc[
-                    area_df["Lipid_Class"] == c, "Proportional_Contribution"
-                ].max(),
-            ]
-            if args.groupaxes
-            else [None] * 6
-        )
+        # Set axes ranges for this sample group; overwritten if the -g flag is not set
+        [cmin, cmax, dbmin, dbmax, propmin, propmax] = [
+            area_df.loc[area_df["Lipid_Class"] == c, "N_Carbon"].min(),
+            area_df.loc[area_df["Lipid_Class"] == c, "N_Carbon"].max(),
+            area_df.loc[area_df["Lipid_Class"] == c, "N_DB"].min(),
+            area_df.loc[area_df["Lipid_Class"] == c, "N_DB"].max(),
+            area_df.loc[area_df["Lipid_Class"] == c, "Proportional_Contribution"].min(),
+            area_df.loc[area_df["Lipid_Class"] == c, "Proportional_Contribution"].max(),
+        ]
         # Begin looping through the sample groups
         for g in area_df["Sample_Group"].drop_duplicates().values:
             # Subset for rows relevant to this lipid class/sample group
             g_area_df = area_df.loc[
                 (area_df["Lipid_Class"] == c) & (area_df["Sample_Group"] == g)
             ]
-            # Drop rows for species not detected in this sample
-            g_area_df = g_area_df.groupby(["N_Carbon", "N_DB"]).filter(
-                lambda x: not all(x["Area"] == 0)
+            # Override the per-sample-group axes ranges for this plot if the -g flag is
+            # not set
+            if not args.groupaxes:
+                [cmin, cmax, dbmin, dbmax, propmin, propmax] = [
+                    g_area_df.loc[
+                        g_area_df["Proportional_Contribution"] > 0, "N_Carbon"
+                    ].min(),
+                    g_area_df.loc[
+                        g_area_df["Proportional_Contribution"] > 0, "N_Carbon"
+                    ].max(),
+                    g_area_df.loc[
+                        g_area_df["Proportional_Contribution"] > 0, "N_DB"
+                    ].min(),
+                    g_area_df.loc[
+                        g_area_df["Proportional_Contribution"] > 0, "N_DB"
+                    ].max(),
+                    g_area_df.loc[
+                        g_area_df["Proportional_Contribution"] > 0,
+                        "Proportional_Contribution",
+                    ].min(),
+                    g_area_df.loc[
+                        g_area_df["Proportional_Contribution"] > 0,
+                        "Proportional_Contribution",
+                    ].max(),
+                ]
+            pad_df = []
+            for n_c in range(cmin, cmax + 1):
+                for n_db in range(dbmin, dbmax + 1):
+                    if (
+                        n_c not in g_area_df["N_Carbon"].values
+                        or n_db not in g_area_df["N_DB"].values
+                    ):
+                        for s in g_area_df["Sample_ID"].drop_duplicates():
+                            pad_df.append([s, c, n_c, n_db, 0])
+            pad_df = pd.DataFrame(
+                pad_df,
+                columns=[
+                    "Sample_ID",
+                    "Lipid_Class",
+                    "N_Carbon",
+                    "N_DB",
+                    "Proportional_Contribution",
+                ],
             )
-            g_area_df.fillna({"Proportional_Contribution": 0}, inplace=True)
+            if not pad_df.empty:
+                g_area_df = pd.concat([pad_df, g_area_df])
             # If one or no sum composition, skip to the next lipid
-            is_skippable = (
-                g_area_df[["N_Carbon", "N_DB"]].drop_duplicates().shape[0] <= 1
-            )
-            if is_skippable:
+            if (
+                g_area_df.loc[
+                    g_area_df["Proportional_Contribution"] > 0, ["N_Carbon", "N_DB"]
+                ]
+                .drop_duplicates()
+                .shape[0]
+                <= 1
+            ):
                 continue
             # Create an output subdirectory for the current class
             pathlib.Path(args.o, c).mkdir(parents=True, exist_ok=True)
@@ -510,11 +517,15 @@ if __name__ == "__main__":
                 g_area_df[["N_Carbon", "Area"]]
                 .groupby("N_Carbon")
                 .sum()
-                .squeeze()
-                .values
+                .sort_index()
+                .values.squeeze()
             )
             n_db_weights = (
-                g_area_df[["N_DB", "Area"]].groupby("N_DB").sum().squeeze().values
+                g_area_df[["N_DB", "Area"]]
+                .groupby("N_DB")
+                .sum()
+                .sort_index()
+                .values.squeeze()
             )
             avg_n_carbon = sum(
                 n_carbon_weights / g_area_df["Area"].sum() * n_carbon_values
@@ -619,6 +630,34 @@ if __name__ == "__main__":
                 bbox_inches="tight",
             )
             plt.close()
+            # If the -b flag is set, produce marginal bar plots
+            if args.b:
+                for m in ["N_Carbon", "N_DB"]:
+                    fig, ax = plot_marginal_barplot(g_area_df, m)
+                    # Decorating plot
+                    x_label = (
+                        "Number of carbon atoms"
+                        if m == "N_Carbon"
+                        else "Number of double bonds"
+                    )
+                    ax.set_xlabel(x_label, size=args.l)
+                    ax.set_ylabel("Proportion", size=args.l)
+                    ax.set_title(f"{c} {g}", size=args.l)
+                    ax.tick_params(axis="both", labelsize=args.l)
+                    # Hide every other tick label if more than 15 values
+                    if g_area_df[m].max() - g_area_df[m].min() >= 15:
+                        if g_area_df[m].min() % 2 == 0:
+                            for l in ax.xaxis.get_ticklabels()[1::2]:
+                                l.set_visible(False)
+                        else:
+                            for l in ax.xaxis.get_ticklabels()[::2]:
+                                l.set_visible(False)
+                    plt.savefig(
+                        fname=pathlib.Path(args.o, c, f"{c}_{g}_{m}_Marginal.png"),
+                        dpi=300,
+                        bbox_inches="tight",
+                    )
+                    plt.close()
     # Save marginal means as a CSV if the -t flag is set
     if args.t:
         (
