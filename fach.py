@@ -408,6 +408,7 @@ if __name__ == "__main__":
     if args.t:
         area_df.to_csv(pathlib.Path(args.o, "Parsed_Area_Table.csv"), index=False)
         average_values = []
+        average_values_by_sample = []
     # Begin looping through the lipid classes
     for c in tqdm(area_df["Lipid_Class"].drop_duplicates().values):
         # Set axes ranges for this sample group; overwritten if the -g flag is not set
@@ -512,11 +513,6 @@ if __name__ == "__main__":
                 n_carbon_values, avg_n_carbon, n_carbon_weights
             )
             sd_n_db = weighted_standard_deviation(n_db_values, avg_n_db, n_db_weights)
-            # Write the marginal means to a table if the -t flag is set
-            if args.t:
-                average_values.append(
-                    [c, g, avg_n_carbon, avg_n_db, sd_n_carbon, sd_n_db]
-                )
             # Mark the marginal means on the FACH as dotten lines if the -m flag is set
             if args.m:
                 if args.groupaxes:
@@ -561,6 +557,50 @@ if __name__ == "__main__":
                     verticalalignment="top",
                     fontsize=args.l,
                 )
+            # Write the marginal means to a table if the -t flag is set
+            if args.t:
+                average_values.append(
+                    [c, g, avg_n_carbon, avg_n_db, sd_n_carbon, sd_n_db]
+                )
+                for s in g_area_df["Sample_ID"].drop_duplicates().values:
+                    s_area_df = g_area_df.loc[g_area_df["Sample_ID"] == s]
+                    if s_area_df["Area"].sum() == 0:
+                        average_values_by_sample.append(
+                            [c, s, np.nan, np.nan, np.nan, np.nan]
+                        )
+                        continue
+                    # Determine the weighted marginal mean and standard deviation values
+                    n_carbon_values = np.sort(
+                        s_area_df["N_Carbon"].drop_duplicates().values
+                    )
+                    n_db_values = np.sort(s_area_df["N_DB"].drop_duplicates().values)
+                    n_carbon_weights = (
+                        s_area_df[["N_Carbon", "Area"]]
+                        .groupby("N_Carbon")
+                        .sum()
+                        .sort_index()
+                        .values.squeeze()
+                    )
+                    n_db_weights = (
+                        s_area_df[["N_DB", "Area"]]
+                        .groupby("N_DB")
+                        .sum()
+                        .sort_index()
+                        .values.squeeze()
+                    )
+                    avg_n_carbon = sum(
+                        n_carbon_weights / s_area_df["Area"].sum() * n_carbon_values
+                    )
+                    avg_n_db = sum(n_db_weights / s_area_df["Area"].sum() * n_db_values)
+                    sd_n_carbon = weighted_standard_deviation(
+                        n_carbon_values, avg_n_carbon, n_carbon_weights
+                    )
+                    sd_n_db = weighted_standard_deviation(
+                        n_db_values, avg_n_db, n_db_weights
+                    )
+                    average_values_by_sample.append(
+                        [c, s, avg_n_carbon, avg_n_db, sd_n_carbon, sd_n_db]
+                    )
             # Decorating heatmap
             ax_heatmap.set_xlabel("Number of carbon atoms", size=args.l)
             ax_heatmap.set_ylabel("Number of double bonds", size=args.l)
@@ -649,4 +689,17 @@ if __name__ == "__main__":
                     "SD_N_DB",
                 ],
             ).to_csv(pathlib.Path(args.o, "Marginal_Means.csv"), index=False)
+        )
+        (
+            pd.DataFrame(
+                average_values_by_sample,
+                columns=[
+                    "Lipid_Class",
+                    "Sample_ID",
+                    "Mean_N_Carbon",
+                    "Mean_N_DB",
+                    "SD_N_Carbon",
+                    "SD_N_DB",
+                ],
+            ).to_csv(pathlib.Path(args.o, "Marginal_Means_By_Sample.csv"), index=False)
         )
