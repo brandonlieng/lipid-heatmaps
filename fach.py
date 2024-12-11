@@ -539,7 +539,10 @@ if __name__ == "__main__":
                         avg_n_db, n_db_range, range(len(n_db_range))
                     )
                     ax_heatmap.axhline(
-                        y=n_db_range[-1] - interpolated_avg_n_db + 0.5,
+                        y=n_db_range[-1]
+                        - interpolated_avg_n_db
+                        + 0.5
+                        - n_db_range.min(),
                         linestyle="--",
                         linewidth=1,
                     )
