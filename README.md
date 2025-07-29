@@ -6,7 +6,7 @@ This is a script to generate fatty acid composition heatmaps from lipidomics dat
 
 ### Formatting your input data
 
-This script accepts an `.xlsx` Excel file where rows are features and columns are samples. The first row of the sheet should hold a blank cell followed by sample IDs. The first column of the sheet should hold a blank cell followed by feature annotations. The values that fill the matrix should be the peak areas of each lipid found in each sample (`NA` values are OK, they will be treated as 0s).
+This script accepts an `.xlsx` Excel file where rows are features and columns are samples. The first row of the sheet (header row) should hold a cell conttaining `Lipid_Annotation` followed by sample IDs. The first column of the sheet should contain the `Lipid_Annotation` header followed by feature annotations. The values that fill the matrix should be the peak areas of each lipid found in each sample (`NA` values are OK, they will be treated as 0s).
 
 Sample/column names should be in the format `XYZ_123`. Everything before (`XYZ`) the last underscore in each column name will be treated as a group ID and everything after (`123`) will be treated as a replicate ID. Group IDs can have underscores in them, so something like: `[DMSO_COLD_1, DMSO_COLD_2, DMSO_HOT_1, DMSO_HOT_2]` is OK. Group IDs will be used to name output files, so try and pick sensible names -- choose something like "AML_T_Pool_1" over "AML-Drug treatment (pooled)_1".
 
