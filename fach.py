@@ -353,7 +353,7 @@ if __name__ == "__main__":
     plt.rcParams["font.family"] = args.f
     matplotlib.use("Agg")
     # Import the data matrix
-    area_df = pd.read_excel(args.i, header=0, index_col=0)
+    area_df = pd.read_csv(args.i, header=0, index_col=0)
     # Un-pivot the matrix to a long-format table
     area_df = (
         area_df.melt(ignore_index=False)
