@@ -53,7 +53,7 @@ where:
 
 Arguments in square brackets are optional.
 
-Example: `python fach.py -i ~/Documents/example/area_table.xlsx -o ~/Desktop/output_fach_plots -m -c copper -b` will generate fatty acid composition heatmaps using areas stored in input file `~/Documents/example/area_table.xlsx`. These plots will be saved as png files in `~/Desktop/output_fach_plots`. Dashed lines will appear denoting mean values and the colour map used will be `copper`. Barplots showing marginal distributions across groups will be plotted. Axis ranges will not be determined on a per-group basis, so two FACH plots for the same lipid class but for different sample groups may have different axis ranges.
+Example: `python fach.py -i ~/Documents/example/area_table.csv -o ~/Desktop/output_fach_plots -m -c copper -b` will generate fatty acid composition heatmaps using areas stored in input file `~/Documents/example/area_table.csv`. These plots will be saved as png files in `~/Desktop/output_fach_plots`. Dashed lines will appear denoting mean values and the colour map used will be `copper`. Barplots showing marginal distributions across groups will be plotted. Axis ranges will not be determined on a per-group basis, so two FACH plots for the same lipid class but for different sample groups may have different axis ranges.
 
 Notes:
 * To make the file paths easy, you can copy a file from the Finder/File Explorer and paste it to the Terminal/CMD as a file path
