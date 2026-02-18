@@ -737,7 +737,7 @@ if __name__ == "__main__":
                     .apply(lambda x: x.std() / x.mean() * 100), 
                     average_values_by_sample_df
                     .groupby(["Lipid_Class", "Sample_Group"])["Mean_N_DB"]
-                    .apply(lambda x: x.std() / x.mean() * 100)
+                    .apply(lambda x: x.std() / x.mean() * 100 if x.mean() != 0 else np.nan)
                 ],
                 axis=1
             )
