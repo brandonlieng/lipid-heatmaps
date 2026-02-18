@@ -162,7 +162,6 @@ def plot_fach(
     ax_heatmap.tick_params(axis='x', which='major', length=5)
     ax_heatmap.tick_params(axis='y', which='major', length=5)
     ax_heatmap.tick_params(axis='x', which='minor', length=2)
-
     marginal_c_df = area_df.groupby(["N_Carbon", "Sample_ID"], as_index=False)[
         "Proportional_Contribution"
     ].sum()
@@ -589,7 +588,7 @@ if __name__ == "__main__":
                     s_area_df = g_area_df.loc[g_area_df["Sample_ID"] == s]
                     if s_area_df["Area"].sum() == 0:
                         average_values_by_sample.append(
-                            [c, s, np.nan, np.nan, np.nan, np.nan]
+                            [c, g, s, np.nan, np.nan, np.nan, np.nan]
                         )
                         continue
                     # Determine the weighted marginal mean and standard deviation values
@@ -622,7 +621,7 @@ if __name__ == "__main__":
                         n_db_values, avg_n_db, n_db_weights
                     )
                     average_values_by_sample.append(
-                        [c, s, avg_n_carbon, avg_n_db, sd_n_carbon, sd_n_db]
+                        [c, g, s, avg_n_carbon, avg_n_db, sd_n_carbon, sd_n_db]
                     )
             # Decorating heatmap
             ax_heatmap.set_xlabel("Number of carbon atoms", size=args.l)
@@ -713,16 +712,35 @@ if __name__ == "__main__":
                 ],
             ).to_csv(pathlib.Path(args.o, "Marginal_Means.csv"), index=False)
         )
-        (
+        average_values_by_sample_df = (
             pd.DataFrame(
                 average_values_by_sample,
                 columns=[
                     "Lipid_Class",
+                    "Sample_Group",
                     "Sample_ID",
                     "Mean_N_Carbon",
                     "Mean_N_DB",
                     "SD_N_Carbon",
                     "SD_N_DB",
                 ],
-            ).to_csv(pathlib.Path(args.o, "Marginal_Means_By_Sample.csv"), index=False)
+            )
+        )
+        average_values_by_sample_df.to_csv(
+            pathlib.Path(args.o, "Marginal_Means_By_Sample.csv"), index=False
+        )
+        (
+            pd.concat(
+                [
+                    average_values_by_sample_df
+                    .groupby(["Lipid_Class", "Sample_Group"])["Mean_N_Carbon"]
+                    .apply(lambda x: x.std() / x.mean() * 100), 
+                    average_values_by_sample_df
+                    .groupby(["Lipid_Class", "Sample_Group"])["Mean_N_DB"]
+                    .apply(lambda x: x.std() / x.mean() * 100)
+                ],
+                axis=1
+            )
+            .reset_index()
+            .to_csv(pathlib.Path(args.o, "Marginal_CV.csv"), index=False)
         )
