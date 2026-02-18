@@ -13,6 +13,7 @@ import pandas as pd
 import pathlib
 import re
 import seaborn as sns
+from matplotlib.ticker import FixedLocator
 from tqdm.auto import tqdm
 
 
@@ -143,6 +144,25 @@ def plot_fach(
         cbar_kws={"orientation": "horizontal", "label": "Proportion"},
         mask=(heatmap_df == 0),
     )
+    # Show only even values on the heatmap x-axis
+    ax_heatmap.set_xticks(
+        ax_heatmap.get_xticks(),
+        labels=[
+            int(l.get_text()) if int(l.get_text()) % 2 == 0 else ""
+            for l in ax_heatmap.get_xticklabels()
+        ],
+        fontsize=args.l,
+    )
+    # Get positions of even and odd values
+    even_ticks = np.array(ax_heatmap.get_xticks())[::2]    # every other tick -> majors
+    odd_ticks = np.array(ax_heatmap.get_xticks())[1::2]  # the alternating ticks -> minors
+    # Set even ticks as major ticks and odd ticks as minor ticks, then style
+    ax_heatmap.xaxis.set_major_locator(FixedLocator(even_ticks))
+    ax_heatmap.xaxis.set_minor_locator(FixedLocator(odd_ticks))
+    ax_heatmap.tick_params(axis='x', which='major', length=5)
+    ax_heatmap.tick_params(axis='y', which='major', length=5)
+    ax_heatmap.tick_params(axis='x', which='minor', length=2)
+
     marginal_c_df = area_df.groupby(["N_Carbon", "Sample_ID"], as_index=False)[
         "Proportional_Contribution"
     ].sum()
